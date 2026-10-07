@@ -81,22 +81,83 @@ function showiOSToast(message, icon = '✓') {
   }, 2600);
 }
 
-// --- Precision Stopwatch / Habit Timer ---
+// --- Precision Stopwatch / Habit Timer with LocalStorage Persistence ---
 class HabitTimer {
   constructor() {
     this.seconds = 0;
+    this.accumulated = 0;
+    this.startTime = null;
     this.timerId = null;
     this.isRunning = false;
+
     this.display = document.getElementById('timerDigits');
     this.btn = document.getElementById('timerToggleBtn');
+    this.resetBtn = document.getElementById('timerResetBtn');
     this.logBtn = document.getElementById('timerLogBtn');
     this.indicator = document.getElementById('timerIndicator');
 
     if (this.btn) {
       this.btn.addEventListener('click', () => this.toggle());
     }
+    if (this.resetBtn) {
+      this.resetBtn.addEventListener('click', () => this.reset());
+    }
     if (this.logBtn) {
       this.logBtn.addEventListener('click', () => this.logSession());
+    }
+
+    this.restoreState();
+  }
+
+  saveState() {
+    try {
+      localStorage.setItem('habit_stopwatch_state', JSON.stringify({
+        isRunning: this.isRunning,
+        startTime: this.startTime,
+        accumulated: this.accumulated
+      }));
+    } catch (e) {
+      console.warn('Could not save stopwatch state', e);
+    }
+  }
+
+  restoreState() {
+    try {
+      const saved = localStorage.getItem('habit_stopwatch_state');
+      if (saved) {
+        const state = JSON.parse(saved);
+        this.accumulated = state.accumulated || 0;
+        
+        if (state.isRunning && state.startTime) {
+          this.startTime = state.startTime;
+          this.isRunning = true;
+          const elapsedSinceStart = Math.floor((Date.now() - this.startTime) / 1000);
+          this.seconds = Math.max(0, this.accumulated + elapsedSinceStart);
+          this.render();
+          
+          if (this.btn) this.btn.innerText = 'Pause';
+          if (this.indicator) {
+            this.indicator.style.background = 'var(--apple-green)';
+            this.indicator.style.boxShadow = '0 0 10px var(--apple-green)';
+          }
+
+          this.timerId = setInterval(() => {
+            const currentElapsed = Math.floor((Date.now() - this.startTime) / 1000);
+            this.seconds = Math.max(0, this.accumulated + currentElapsed);
+            this.render();
+          }, 1000);
+        } else if (this.accumulated > 0) {
+          this.seconds = this.accumulated;
+          this.render();
+          if (this.btn) this.btn.innerText = 'Resume';
+          if (this.indicator) {
+            this.indicator.style.background = 'var(--apple-orange)';
+            this.indicator.style.boxShadow = 'none';
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not restore stopwatch state', e);
     }
   }
 
@@ -110,25 +171,59 @@ class HabitTimer {
 
   start() {
     this.isRunning = true;
+    this.startTime = Date.now();
     if (this.btn) this.btn.innerText = 'Pause';
     if (this.indicator) {
       this.indicator.style.background = 'var(--apple-green)';
       this.indicator.style.boxShadow = '0 0 10px var(--apple-green)';
     }
+
+    this.saveState();
+
+    if (this.timerId) clearInterval(this.timerId);
     this.timerId = setInterval(() => {
-      this.seconds++;
+      const currentElapsed = Math.floor((Date.now() - this.startTime) / 1000);
+      this.seconds = Math.max(0, this.accumulated + currentElapsed);
       this.render();
     }, 1000);
   }
 
   stop() {
+    if (this.isRunning && this.startTime) {
+      const elapsedSinceStart = Math.floor((Date.now() - this.startTime) / 1000);
+      this.accumulated += Math.max(0, elapsedSinceStart);
+    }
+    this.seconds = this.accumulated;
     this.isRunning = false;
+    this.startTime = null;
+
     if (this.btn) this.btn.innerText = 'Resume';
     if (this.indicator) {
       this.indicator.style.background = 'var(--apple-orange)';
       this.indicator.style.boxShadow = 'none';
     }
     clearInterval(this.timerId);
+    this.saveState();
+  }
+
+  reset() {
+    this.isRunning = false;
+    this.seconds = 0;
+    this.accumulated = 0;
+    this.startTime = null;
+    clearInterval(this.timerId);
+
+    try {
+      localStorage.removeItem('habit_stopwatch_state');
+    } catch (e) {}
+
+    if (this.btn) this.btn.innerText = 'Start';
+    if (this.indicator) {
+      this.indicator.style.background = 'var(--apple-green)';
+      this.indicator.style.boxShadow = 'none';
+    }
+    this.render();
+    showiOSToast('Stopwatch reset', '↺');
   }
 
   render() {
