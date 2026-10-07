@@ -1,0 +1,67 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}{{ block.super }}{% endblock %}
+
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+
+{% block usertools %}{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block nav-sidebar %}{% endblock %}
+
+{% block content_title %}{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div class="apple-login-box">
+  <div class="apple-login-header">
+    <div class="apple-login-app-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="28" height="28">
+        <circle cx="12" cy="12" r="9"/>
+        <polyline points="12 7 12 12 15 14"/>
+      </svg>
+    </div>
+    <h1 class="apple-login-title">Habit Admin</h1>
+    <p class="apple-login-subtitle">Executive control for life tracking, categories & SMTP</p>
+  </div>
+
+  {% if form.errors and not form.non_field_errors %}
+  <p class="errornote">
+    {% blocktranslate count counter=form.errors.items|length %}Please correct the error below.{% plural %}Please correct the errors below.{% endblocktranslate %}
+  </p>
+  {% endif %}
+
+  {% if form.non_field_errors %}
+  {% for error in form.non_field_errors %}
+  <p class="errornote">
+    {{ error }}
+  </p>
+  {% endfor %}
+  {% endif %}
+
+  <div id="content-main">
+    <form action="{{ app_path }}" method="post" id="login-form">{% csrf_token %}
+      <div class="form-row">
+        {{ form.username.errors }}
+        <label for="id_username">{% translate 'Username' %}</label>
+        {{ form.username }}
+      </div>
+      <div class="form-row">
+        {{ form.password.errors }}
+        <label for="id_password">{% translate 'Password' %}</label>
+        {{ form.password }}
+        <input type="hidden" name="next" value="{{ next }}">
+      </div>
+      <div class="submit-row">
+        <input type="submit" value="{% translate 'Sign In to Administration' %}">
+      </div>
+    </form>
+    <div class="apple-login-footer">
+      <a href="{% url 'dashboard' %}">← Return to Habit Canvas</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import UserProfile, Category, HourlyLog, Reminder, ChatMessage
+from .models import UserProfile, Category, HourlyLog, Reminder, ChatMessage, SMTPSettings
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
@@ -28,3 +28,9 @@ class ReminderAdmin(admin.ModelAdmin):
 class ChatMessageAdmin(admin.ModelAdmin):
     list_display = ('user', 'sender', 'message', 'action_type', 'timestamp')
     list_filter = ('sender', 'timestamp')
+
+@admin.register(SMTPSettings)
+class SMTPSettingsAdmin(admin.ModelAdmin):
+    list_display = ('user', 'host', 'port', 'sender_email', 'use_tls', 'is_active', 'updated_at')
+    list_filter = ('is_active', 'use_tls', 'use_ssl')
+    search_fields = ('user__username', 'sender_email', 'host')

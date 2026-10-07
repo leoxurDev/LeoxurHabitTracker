@@ -423,13 +423,23 @@ class AIAssistant {
   constructor() {
     this.panel = document.getElementById('assistantPanel');
     this.openBtn = document.getElementById('siriFloatBtn');
+    this.topBarAiBtn = document.getElementById('topBarAiBtn');
+    this.tabAssistantBtn = document.getElementById('tabAssistantBtn');
     this.closeBtn = document.getElementById('assistantCloseBtn');
     this.messagesContainer = document.getElementById('assistantMessages');
     this.input = document.getElementById('assistantInput');
     this.sendBtn = document.getElementById('assistantSendBtn');
+    this.floatingDock = document.getElementById('aiFloatingDock');
+    this.hideDockBtn = document.getElementById('aiDockHideBtn');
 
     if (this.openBtn) {
       this.openBtn.addEventListener('click', () => this.toggle());
+    }
+    if (this.topBarAiBtn) {
+      this.topBarAiBtn.addEventListener('click', () => this.toggle());
+    }
+    if (this.tabAssistantBtn) {
+      this.tabAssistantBtn.addEventListener('click', () => this.toggle());
     }
     if (this.closeBtn) {
       this.closeBtn.addEventListener('click', () => this.close());
@@ -442,6 +452,27 @@ class AIAssistant {
         if (e.key === 'Enter') this.sendMessage();
       });
     }
+
+    // Floating Dock hide/show persistence
+    if (this.hideDockBtn && this.floatingDock) {
+      const isDockHidden = localStorage.getItem('ios_ai_dock_hidden') === 'true';
+      if (isDockHidden) {
+        this.floatingDock.classList.add('is-hidden');
+      }
+
+      this.hideDockBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.floatingDock.classList.add('is-hidden');
+        localStorage.setItem('ios_ai_dock_hidden', 'true');
+      });
+    }
+
+    // ESC key closes assistant
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.panel && this.panel.classList.contains('open')) {
+        this.close();
+      }
+    });
 
     document.querySelectorAll('.suggestion-chip').forEach(chip => {
       chip.addEventListener('click', () => {
@@ -581,17 +612,63 @@ function initTheme() {
 }
 
 function applyTheme(theme) {
+  let effective = theme;
   if (theme === 'system') {
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
-  } else {
-    document.documentElement.setAttribute('data-theme', theme);
+    effective = prefersDark ? 'dark' : 'light';
   }
+  document.documentElement.setAttribute('data-theme', effective);
+
+  // Smooth Apple SF Symbol morph for Sun/Moon
+  const slot = document.querySelector('#themeToggleBtn .theme-icon-slot');
+  if (slot) {
+    if (effective === 'dark') {
+      slot.innerHTML = `<svg class="sf-icon sf-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+    } else {
+      slot.innerHTML = `<svg class="sf-icon sf-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+    }
+  }
+}
+
+// --- Apple Account Popover Menu ---
+function initAccountMenu() {
+  const menuWrapper = document.querySelector('.apple-account-menu-wrapper');
+  const menuBtn = document.getElementById('accountMenuBtn');
+  const popover = document.getElementById('accountPopover');
+
+  if (!menuBtn || !popover) return;
+
+  const togglePopover = (forceState) => {
+    const isHidden = typeof forceState === 'boolean' ? !forceState : !popover.hidden;
+    popover.hidden = isHidden;
+    menuBtn.setAttribute('aria-expanded', String(!isHidden));
+    if (menuWrapper) {
+      menuWrapper.classList.toggle('active', !isHidden);
+    }
+  };
+
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    togglePopover();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!popover.hidden && menuWrapper && !menuWrapper.contains(e.target)) {
+      togglePopover(false);
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !popover.hidden) {
+      togglePopover(false);
+    }
+  });
 }
 
 // Initialize on DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  initAccountMenu();
 
   const isAuthenticated = !!document.getElementById('currentDateStr') || !!document.querySelector('.ios-nav');
   if (isAuthenticated) {

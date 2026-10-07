@@ -1,0 +1,82 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | Habit Executive Administration{% endblock %}
+
+{% block branding %}
+<div id="site-name">
+  <a href="{% url 'admin:index' %}" class="apple-admin-brand">
+    <div class="apple-admin-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+        <circle cx="12" cy="12" r="9"/>
+        <polyline points="12 7 12 12 15 14"/>
+      </svg>
+    </div>
+    <div class="apple-admin-titles">
+      <span class="apple-admin-title">Habit</span>
+      <span class="apple-admin-badge">Admin</span>
+    </div>
+  </a>
+</div>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/apple_admin.css' %}">
+<script>
+  (function() {
+    const savedTheme = localStorage.getItem('ios_habit_theme') || 'system';
+    function applyTheme(theme) {
+      let eff = theme;
+      if (theme === 'system') {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        eff = prefersDark ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', eff);
+    }
+    applyTheme(savedTheme);
+  })();
+</script>
+{% endblock %}
+
+{% block userlinks %}
+  <div class="apple-admin-userlinks">
+    <!-- Theme Toggle -->
+    <button id="adminThemeToggleBtn" type="button" class="admin-theme-btn" title="Toggle Appearance" aria-label="Toggle Appearance">
+      <span class="admin-theme-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </span>
+    </button>
+    <a href="{% url 'dashboard' %}" class="admin-app-link" title="Open Habit Canvas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+        <polyline points="15 3 21 3 21 9"/>
+        <line x1="10" y1="14" x2="21" y2="3"/>
+      </svg>
+      <span>Habit App</span>
+    </a>
+    <span class="admin-user-pill">{{ user.get_username }}</span>
+    {% if user.has_usable_password %}
+      <a href="{% url 'admin:password_change' %}" class="admin-action-link">Password</a>
+    {% endif %}
+    <form id="logout-form" method="post" action="{% url 'admin:logout' %}" style="display:inline-flex; margin:0;">
+      {% csrf_token %}
+      <button type="submit" class="admin-logout-btn" title="Sign Out">Sign Out</button>
+    </form>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const btn = document.getElementById('adminThemeToggleBtn');
+      if (btn) {
+        btn.addEventListener('click', function() {
+          const cur = document.documentElement.getAttribute('data-theme') || 'light';
+          const next = cur === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          localStorage.setItem('ios_habit_theme', next);
+        });
+      }
+    });
+  </script>
+{% endblock %}

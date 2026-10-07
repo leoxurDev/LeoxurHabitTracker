@@ -26,6 +26,23 @@ ICONS = {
     'checkmark': '''<svg class="{classes}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>''',
     'chevron_left': '''<svg class="{classes}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>''',
     'chevron_right': '''<svg class="{classes}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>''',
+    'chevron_down': '''<svg class="{classes}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>''',
+    'person': '''<svg class="{classes}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>''',
+    'sun': '''<svg class="{classes}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>''',
+    'apple_intelligence': '''<svg class="{classes}" viewBox="0 0 24 24" fill="none">
+      <defs>
+        <linearGradient id="appleAiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#0A84FF"/>
+          <stop offset="35%" stop-color="#BF5AF2"/>
+          <stop offset="70%" stop-color="#FF375F"/>
+          <stop offset="100%" stop-color="#FF9F0A"/>
+        </linearGradient>
+      </defs>
+      <circle cx="12" cy="12" r="8.5" stroke="url(#appleAiGrad)" stroke-width="2.2" stroke-dasharray="1 1.5" stroke-linecap="round"/>
+      <ellipse cx="12" cy="12" rx="4.5" ry="8.5" stroke="url(#appleAiGrad)" stroke-width="2" stroke-linecap="round" transform="rotate(30 12 12)"/>
+      <ellipse cx="12" cy="12" rx="4.5" ry="8.5" stroke="url(#appleAiGrad)" stroke-width="2" stroke-linecap="round" transform="rotate(-30 12 12)"/>
+      <circle cx="12" cy="12" r="2.8" fill="url(#appleAiGrad)"/>
+    </svg>''',
 
     # Category SF Symbols
     'briefcase': '''<svg class="{classes}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>''',

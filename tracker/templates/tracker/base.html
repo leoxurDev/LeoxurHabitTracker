@@ -19,43 +19,91 @@
 
   <div class="ios-app-container">
     {% if user.is_authenticated %}
-    <!-- Navigation Bar -->
+    <!-- Navigation Bar — Apple macOS / iOS Executive Floating Glass Bar -->
     <header class="ios-nav">
-      <a href="{% url 'dashboard' %}" class="nav-brand">
-        <div class="brand-icon">
-          {% sf_icon "clock" "sf-icon-sm" %}
-        </div>
-        <div class="brand-title">
-          <span>Habit</span>
-          <span class="brand-subtitle">24 Hours</span>
-        </div>
-      </a>
+      <div class="nav-left">
+        <a href="{% url 'dashboard' %}" class="nav-brand" title="Habit — 24 Hours Life Canvas">
+          <div class="brand-icon">
+            {% sf_icon "clock" "sf-icon-brand" %}
+          </div>
+          <div class="brand-info">
+            <span class="brand-title">Habit</span>
+            <span class="brand-badge">24H</span>
+          </div>
+        </a>
+      </div>
 
-      <nav class="nav-center-links">
+      <nav class="nav-center-links" aria-label="Primary Navigation">
         <a href="{% url 'dashboard' %}" class="nav-segment-btn {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-          Today
+          {% sf_icon "clock" "sf-icon-xs" %}
+          <span>Today</span>
         </a>
         <a href="{% url 'analytics' %}" class="nav-segment-btn {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
-          Analytics
+          {% sf_icon "analytics" "sf-icon-xs" %}
+          <span>Analytics</span>
         </a>
         <a href="{% url 'settings' %}" class="nav-segment-btn {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
-          Settings
+          {% sf_icon "gear" "sf-icon-xs" %}
+          <span>Settings</span>
         </a>
       </nav>
 
       <div class="nav-actions">
-        <!-- Appearance Toggle -->
-        <button id="themeToggleBtn" class="ios-icon-btn" title="Toggle Appearance" aria-label="Toggle Appearance">
-          {% sf_icon "theme" "sf-icon-sm" %}
+        <!-- Apple Intelligence Trigger -->
+        <button id="topBarAiBtn" class="ios-toolbar-btn apple-ai-toolbar-btn" type="button" title="Apple Intelligence Assistant" aria-label="Habit Assistant">
+          {% sf_icon "apple_intelligence" "sf-icon-sm" %}
         </button>
 
-        <!-- Profile Avatar -->
-        <a href="{% url 'settings' %}" class="ios-icon-btn" title="Profile" style="background: {{ user.profile.avatar_color|default:'#0071E3' }}; color: #fff; font-weight: 600; font-size: 13px;">
-          {{ user.username|slice:":1"|upper }}
-        </a>
+        <!-- Appearance Toggle -->
+        <button id="themeToggleBtn" class="ios-toolbar-btn" type="button" title="Toggle Appearance" aria-label="Toggle Appearance">
+          <span class="theme-icon-slot">{% sf_icon "theme" "sf-icon-sm" %}</span>
+        </button>
 
-        <!-- Sign Out -->
-        <a href="{% url 'logout' %}" class="ios-icon-btn" title="Sign Out" aria-label="Sign Out" style="color: var(--apple-red);">
+        <!-- Apple Account Profile Menu Capsule -->
+        <div class="apple-account-menu-wrapper">
+          <button id="accountMenuBtn" class="apple-account-chip" type="button" aria-haspopup="true" aria-expanded="false" title="Account & Preferences">
+            <span class="account-avatar-ring" style="background: {{ user.profile.avatar_color|default:'#0071E3' }};">
+              {{ user.username|slice:":1"|upper }}
+            </span>
+            <span class="account-name">{{ user.username }}</span>
+            <span class="account-chevron">{% sf_icon "chevron_down" "sf-icon-xs" %}</span>
+          </button>
+
+          <!-- Apple ID / macOS Popover Menu Sheet -->
+          <div id="accountPopover" class="apple-account-popover" hidden>
+            <div class="popover-profile-header">
+              <div class="popover-avatar-lg" style="background: {{ user.profile.avatar_color|default:'#0071E3' }};">
+                {{ user.username|slice:":1"|upper }}
+              </div>
+              <div class="popover-profile-meta">
+                <span class="popover-name">{{ user.username }}</span>
+                <span class="popover-subtitle">{{ user.profile.get_primary_goal_display|default:"Daily Focus" }}</span>
+              </div>
+            </div>
+            <div class="popover-menu-list">
+              <a href="{% url 'dashboard' %}" class="popover-menu-item">
+                {% sf_icon "clock" "sf-icon-sm" %}
+                <span>Today's Canvas</span>
+              </a>
+              <a href="{% url 'analytics' %}" class="popover-menu-item">
+                {% sf_icon "analytics" "sf-icon-sm" %}
+                <span>Analytics & Reports</span>
+              </a>
+              <a href="{% url 'settings' %}" class="popover-menu-item">
+                {% sf_icon "gear" "sf-icon-sm" %}
+                <span>Settings & SMTP</span>
+              </a>
+              <div class="popover-separator"></div>
+              <a href="{% url 'logout' %}" class="popover-menu-item popover-item-logout">
+                {% sf_icon "signout" "sf-icon-sm" %}
+                <span>Sign Out</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Sign Out (Apple Toolbar Style) -->
+        <a href="{% url 'logout' %}" class="ios-toolbar-btn ios-signout-btn" title="Sign Out" aria-label="Sign Out">
           {% sf_icon "signout" "sf-icon-sm" %}
         </a>
       </div>
@@ -102,8 +150,8 @@
       <span class="tab-icon">{% sf_icon "analytics" %}</span>
       <span>Trends</span>
     </a>
-    <button onclick="document.getElementById('siriFloatBtn').click()" class="tab-item" style="background:none; border:none; cursor:pointer;">
-      <span class="tab-icon">{% sf_icon "sparkles" %}</span>
+    <button id="tabAssistantBtn" type="button" class="tab-item" style="background:none; border:none; cursor:pointer;">
+      <span class="tab-icon">{% sf_icon "apple_intelligence" %}</span>
       <span>Assistant</span>
     </button>
     <a href="{% url 'settings' %}" class="tab-item {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
@@ -112,19 +160,27 @@
     </a>
   </div>
 
-  <!-- Assistant Floating Button -->
-  <button id="siriFloatBtn" class="siri-float-btn" title="Habit Assistant" aria-label="Habit Assistant">
-    {% sf_icon "sparkles" %}
-  </button>
+  <!-- Floating Apple Intelligence Dock Widget -->
+  <div id="aiFloatingDock" class="siri-float-dock">
+    <button id="siriFloatBtn" class="siri-float-btn" type="button" title="Apple Intelligence Assistant" aria-label="Habit Assistant">
+      <span class="siri-float-halo" aria-hidden="true"></span>
+      {% sf_icon "apple_intelligence" "sf-icon-lg" %}
+    </button>
+    <button id="aiDockHideBtn" class="siri-dock-hide-btn" type="button" title="Hide Assistant Floating Button" aria-label="Hide Floating Button">
+      {% sf_icon "xmark" "sf-icon-xs" %}
+    </button>
+  </div>
 
   <!-- Assistant Panel Drawer -->
   <div id="assistantPanel" class="assistant-panel" role="dialog" aria-labelledby="assistantTitle">
     <div class="assistant-header">
       <div class="assistant-header-title" id="assistantTitle">
-        <div class="assistant-mini-dot"></div>
+        <div class="assistant-ai-badge">
+          {% sf_icon "apple_intelligence" "sf-icon-sm" %}
+        </div>
         <div>
-          <span>Assistant</span>
-          <div style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">Daily Routine Guidance</div>
+          <span>Apple Intelligence</span>
+          <div style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">Habit Routine Guidance</div>
         </div>
       </div>
       <button id="assistantCloseBtn" class="ios-icon-btn" style="width: 28px; height: 28px;">
