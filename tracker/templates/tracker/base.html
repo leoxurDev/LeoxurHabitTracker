@@ -1,0 +1,248 @@
+{% load static %}
+{% load apple_icons %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>{% block title %}Habit — 24-Hour Time Canvas{% endblock %}</title>
+  <meta name="description" content="Minimalist 24-hour habit and activity tracker. Intentional living, precision logging, and daily focus.">
+  <link rel="stylesheet" href="{% static 'css/ios_theme.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <!-- Ambient background lighting -->
+  <div class="ambient-bg" aria-hidden="true">
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+  </div>
+
+  <div class="ios-app-container">
+    {% if user.is_authenticated %}
+    <!-- Navigation Bar -->
+    <header class="ios-nav">
+      <a href="{% url 'dashboard' %}" class="nav-brand">
+        <div class="brand-icon">
+          {% sf_icon "clock" "sf-icon-sm" %}
+        </div>
+        <div class="brand-title">
+          <span>Habit</span>
+          <span class="brand-subtitle">24 Hours</span>
+        </div>
+      </a>
+
+      <nav class="nav-center-links">
+        <a href="{% url 'dashboard' %}" class="nav-segment-btn {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+          Today
+        </a>
+        <a href="{% url 'analytics' %}" class="nav-segment-btn {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
+          Analytics
+        </a>
+        <a href="{% url 'settings' %}" class="nav-segment-btn {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+          Settings
+        </a>
+      </nav>
+
+      <div class="nav-actions">
+        <!-- Appearance Toggle -->
+        <button id="themeToggleBtn" class="ios-icon-btn" title="Toggle Appearance" aria-label="Toggle Appearance">
+          {% sf_icon "theme" "sf-icon-sm" %}
+        </button>
+
+        <!-- Profile Avatar -->
+        <a href="{% url 'settings' %}" class="ios-icon-btn" title="Profile" style="background: {{ user.profile.avatar_color|default:'#0071E3' }}; color: #fff; font-weight: 600; font-size: 13px;">
+          {{ user.username|slice:":1"|upper }}
+        </a>
+
+        <!-- Sign Out -->
+        <a href="{% url 'logout' %}" class="ios-icon-btn" title="Sign Out" aria-label="Sign Out" style="color: var(--apple-red);">
+          {% sf_icon "signout" "sf-icon-sm" %}
+        </a>
+      </div>
+    </header>
+    {% endif %}
+
+    <!-- Apple Dynamic Capsule Notification Banners -->
+    {% if messages %}
+    <div id="messagesContainer">
+      {% for message in messages %}
+      <div class="ios-banner-alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %}">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="color: {% if message.tags == 'error' %}var(--apple-red){% else %}var(--apple-green){% endif %};">
+            {% if message.tags == 'error' %}
+              {% sf_icon "xmark" "sf-icon-sm" %}
+            {% else %}
+              {% sf_icon "checkmark" "sf-icon-sm" %}
+            {% endif %}
+          </span>
+          <span>{{ message }}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" style="background: none; border: none; color: var(--text-tertiary); cursor: pointer; padding: 2px 6px; font-size: 12px;">
+          {% sf_icon "xmark" "sf-icon-sm" %}
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {% if user.is_authenticated %}
+  <!-- Mobile Bottom Tab Bar -->
+  <div class="ios-tab-bar">
+    <a href="{% url 'dashboard' %}" class="tab-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+      <span class="tab-icon">{% sf_icon "clock" %}</span>
+      <span>Today</span>
+    </a>
+    <a href="{% url 'analytics' %}" class="tab-item {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
+      <span class="tab-icon">{% sf_icon "analytics" %}</span>
+      <span>Trends</span>
+    </a>
+    <button onclick="document.getElementById('siriFloatBtn').click()" class="tab-item" style="background:none; border:none; cursor:pointer;">
+      <span class="tab-icon">{% sf_icon "sparkles" %}</span>
+      <span>Assistant</span>
+    </button>
+    <a href="{% url 'settings' %}" class="tab-item {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+      <span class="tab-icon">{% sf_icon "gear" %}</span>
+      <span>Settings</span>
+    </a>
+  </div>
+
+  <!-- Assistant Floating Button -->
+  <button id="siriFloatBtn" class="siri-float-btn" title="Habit Assistant" aria-label="Habit Assistant">
+    {% sf_icon "sparkles" %}
+  </button>
+
+  <!-- Assistant Panel Drawer -->
+  <div id="assistantPanel" class="assistant-panel" role="dialog" aria-labelledby="assistantTitle">
+    <div class="assistant-header">
+      <div class="assistant-header-title" id="assistantTitle">
+        <div class="assistant-mini-dot"></div>
+        <div>
+          <span>Assistant</span>
+          <div style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">Daily Routine Guidance</div>
+        </div>
+      </div>
+      <button id="assistantCloseBtn" class="ios-icon-btn" style="width: 28px; height: 28px;">
+        {% sf_icon "xmark" "sf-icon-sm" %}
+      </button>
+    </div>
+
+    <div class="assistant-messages" id="assistantMessages">
+      <div class="msg-bubble msg-assistant">
+        Hello {{ user.first_name|default:user.username }}. I can help analyze your hours, schedule reminders, or guide you on tracking with precision.
+      </div>
+      {% for msg in chat_history %}
+      <div class="msg-bubble msg-{{ msg.sender }}">
+        {{ msg.message|linebreaksbr }}
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Quick Prompts -->
+    <div class="assistant-suggestions">
+      <div class="suggestion-chip" data-prompt="How to use this app?">Walkthrough</div>
+      <div class="suggestion-chip" data-prompt="Show my status">Daily Status</div>
+      <div class="suggestion-chip" data-prompt="Give me motivation">Focus Quote</div>
+      <div class="suggestion-chip" data-prompt="Remind me at 9:00 PM to log my day">Remind 9 PM</div>
+      <div class="suggestion-chip" data-prompt="How to track in seconds and minutes?">Precision Units</div>
+    </div>
+
+    <div class="assistant-input-box">
+      <input type="text" id="assistantInput" class="assistant-input" placeholder="Ask Assistant or set reminder..." autocomplete="off">
+      <button id="assistantSendBtn" class="send-btn" aria-label="Send Message">↑</button>
+    </div>
+  </div>
+
+  <!-- Activity Logging Modal / Sheet -->
+  <div id="activityModal" class="ios-modal-backdrop">
+    <div class="ios-modal-card">
+      <div class="modal-drag-indicator"></div>
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalHourTitle">Hour 09:00 AM</h3>
+        <button onclick="closeLogModal()" class="ios-icon-btn" style="width: 28px; height: 28px;">
+          {% sf_icon "xmark" "sf-icon-sm" %}
+        </button>
+      </div>
+
+      <form id="activityLogForm" onsubmit="event.preventDefault(); saveActivityLog();">
+        <input type="hidden" id="modalHourInput" value="0">
+
+        <!-- Activity Name -->
+        <div class="ios-form-group">
+          <label class="ios-label">Activity Title</label>
+          <input type="text" id="modalTitleInput" class="ios-input" placeholder="e.g. Deep Work, Morning Workout, Reading" required>
+        </div>
+
+        <!-- Unit Selector -->
+        <div class="ios-form-group">
+          <label class="ios-label">Unit of Measure</label>
+          <div class="ios-segmented-control">
+            <div class="segmented-option active" data-unit="hours">Hours</div>
+            <div class="segmented-option" data-unit="minutes">Minutes</div>
+            <div class="segmented-option" data-unit="seconds">Seconds</div>
+          </div>
+        </div>
+
+        <!-- Duration Value -->
+        <div class="ios-form-group">
+          <label class="ios-label" id="modalDurationLabel">Duration (HOURS)</label>
+          <input type="number" id="modalDurationInput" class="ios-input" step="any" min="0.1" value="1.0" required>
+        </div>
+
+        <!-- Category Picker -->
+        <div class="ios-form-group">
+          <label class="ios-label">Category</label>
+          <div class="category-picker-grid">
+            {% for cat in categories %}
+            <div class="category-tile" data-cat-id="{{ cat.id }}" style="border-left: 3px solid {{ cat.color }};">
+              <span>{% category_sf_icon cat.name "sf-icon-sm" %}</span>
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ cat.name }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Energy Level Rating -->
+        <div class="ios-form-group">
+          <label class="ios-label">Energy Level</label>
+          <div class="energy-selector">
+            <div class="energy-dot" data-level="1">1</div>
+            <div class="energy-dot" data-level="2">2</div>
+            <div class="energy-dot" data-level="3">3</div>
+            <div class="energy-dot active" data-level="4">4</div>
+            <div class="energy-dot" data-level="5">5</div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="ios-form-group">
+          <label class="ios-label">Notes</label>
+          <textarea id="modalNotesInput" class="ios-textarea" rows="2" placeholder="Key outcomes or focus reflections..."></textarea>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; gap: 8px; margin-top: 22px;">
+          <button type="submit" class="ios-btn-primary" style="flex: 2; height: 42px;">
+            Save
+          </button>
+          <button type="button" id="modalDeleteBtn" onclick="deleteActivityLog()" class="ios-btn-secondary" style="flex: 1; height: 42px; color: var(--apple-red); display: none;">
+            Clear
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Toast Notification -->
+  <div id="iosToast" class="ios-toast"></div>
+
+  <script src="{% static 'js/tracker_app.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

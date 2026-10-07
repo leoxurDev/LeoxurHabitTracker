@@ -1,0 +1,285 @@
+{% extends "tracker/base.html" %}
+{% load apple_icons %}
+
+{% block title %}Analytics — Habit{% endblock %}
+
+{% block content %}
+<div class="hero-header">
+  <div class="hero-title-row">
+    <div>
+      <h1 class="hero-title">Analytics & Reports</h1>
+      <p class="hero-subtitle">Visual trends, 24-hour rhythm, and multi-format exports.</p>
+    </div>
+
+    <!-- Export & Share Action Buttons with Apple SF Symbols -->
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <a href="{% url 'export_analytics_csv' %}?range={{ range_param }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}" class="ios-btn-secondary" title="Download CSV Spreadsheet">
+        {% sf_icon "doc_text" "sf-icon-sm" %}
+        <span>CSV</span>
+      </a>
+      <a href="{% url 'export_analytics_pdf' %}?range={{ range_param }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}" class="ios-btn-secondary" title="Download High-Resolution PDF Report">
+        {% sf_icon "download" "sf-icon-sm" %}
+        <span>PDF Report</span>
+      </a>
+      <button onclick="document.getElementById('shareEmailModal').classList.add('open')" class="ios-btn-primary" title="Email Report to User">
+        {% sf_icon "envelope" "sf-icon-sm" %}
+        <span>Email Report</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Date Range Selector Bar (Up to 90 Days) -->
+<div class="ios-card" style="padding: 16px 20px; margin-bottom: 24px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+    
+    <!-- Presets -->
+    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+      <span style="font-size: 11.5px; font-weight: 600; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.04em; margin-right: 4px;">Range:</span>
+      <a href="?range=7" class="date-preset-pill {% if range_param == '7' %}active{% endif %}">7 Days</a>
+      <a href="?range=14" class="date-preset-pill {% if range_param == '14' %}active{% endif %}">14 Days</a>
+      <a href="?range=30" class="date-preset-pill {% if range_param == '30' %}active{% endif %}">30 Days</a>
+      <a href="?range=90" class="date-preset-pill {% if range_param == '90' %}active{% endif %}">90 Days</a>
+    </div>
+
+    <!-- Custom Range Form -->
+    <form method="GET" action="{% url 'analytics' %}" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <input type="hidden" name="range" value="custom">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" class="ios-input" style="padding: 4px 10px; font-size: 12px; width: 130px;" required>
+        <span style="font-size: 12px; color: var(--text-tertiary);">to</span>
+        <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" class="ios-input" style="padding: 4px 10px; font-size: 12px; width: 130px;" required>
+      </div>
+      <button type="submit" class="ios-btn-secondary" style="padding: 4px 12px; font-size: 12px;">Apply</button>
+    </form>
+
+  </div>
+</div>
+
+<!-- Executive Metrics Overview Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px;">
+  <div class="ios-card" style="padding: 16px 20px;">
+    <div style="font-size: 11px; text-transform: uppercase; font-weight: 600; color: var(--text-tertiary); letter-spacing: 0.04em;">Total Active Time</div>
+    <div style="font-size: 26px; font-weight: 700; color: var(--apple-blue); margin-top: 4px;">{{ total_range_hours }}h</div>
+    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Over {{ total_days }} days</div>
+  </div>
+
+  <div class="ios-card" style="padding: 16px 20px;">
+    <div style="font-size: 11px; text-transform: uppercase; font-weight: 600; color: var(--text-tertiary); letter-spacing: 0.04em;">Daily Average</div>
+    <div style="font-size: 26px; font-weight: 700; color: var(--apple-green); margin-top: 4px;">{{ daily_avg_hours }}h</div>
+    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Target: {{ target_hours }}h/day</div>
+  </div>
+
+  <div class="ios-card" style="padding: 16px 20px;">
+    <div style="font-size: 11px; text-transform: uppercase; font-weight: 600; color: var(--text-tertiary); letter-spacing: 0.04em;">Goal Consistency</div>
+    <div style="font-size: 26px; font-weight: 700; color: var(--apple-indigo); margin-top: 4px;">{{ target_completion_pct }}%</div>
+    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">{{ days_met_target }} of {{ total_days }} days met</div>
+  </div>
+
+  <div class="ios-card" style="padding: 16px 20px;">
+    <div style="font-size: 11px; text-transform: uppercase; font-weight: 600; color: var(--text-tertiary); letter-spacing: 0.04em;">Current Streak</div>
+    <div style="font-size: 26px; font-weight: 700; color: var(--apple-orange); margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+      {% sf_icon "flame" "sf-icon-sm" %}
+      <span>{{ streak_count }}</span>
+    </div>
+    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Consecutive active days</div>
+  </div>
+</div>
+
+<!-- Chart 1: Daily Activity Trend Bar Chart -->
+<div class="ios-card" style="margin-bottom: 24px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+    <div>
+      <h3 style="font-size: 16px; font-weight: 600;">Daily Activity Hours</h3>
+      <p style="font-size: 12.5px; color: var(--text-secondary);">Tracking active volume vs {{ target_hours }}h daily target.</p>
+    </div>
+  </div>
+
+  <!-- Responsive Bars Container -->
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; height: 160px; padding-bottom: 8px; border-bottom: 1px solid var(--border-hairline); gap: {% if total_days > 30 %}3px{% else %}8px{% endif %}; overflow-x: auto;">
+    {% for day in daily_stats %}
+    <div style="flex: 1; min-width: {% if total_days > 45 %}12px{% else %}20px{% endif %}; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;" title="{{ day.date|date:'M j' }}: {{ day.hours }}h ({{ day.slots }} slots)">
+      
+      <!-- Hour Value (hidden if many days) -->
+      {% if total_days <= 14 %}
+      <span style="font-size: 10.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">
+        {{ day.hours }}h
+      </span>
+      {% endif %}
+
+      <!-- Bar Element -->
+      <div style="width: 100%; max-width: 28px; border-radius: var(--radius-xs); transition: height 0.4s var(--ease-apple);
+        {% if day.hours >= target_hours %}
+          background: var(--apple-green);
+        {% elif day.hours > 0 %}
+          background: var(--apple-blue);
+        {% else %}
+          background: var(--bg-subtle);
+        {% endif %}
+        height: {% widthratio day.hours 12 120 %}px; min-height: 4px;">
+      </div>
+
+      <!-- Day Label -->
+      {% if total_days <= 21 %}
+      <span style="font-size: 10.5px; font-weight: {% if day.is_today %}700{% else %}500{% endif %}; color: {% if day.is_today %}var(--apple-blue){% else %}var(--text-secondary){% endif %}; margin-top: 6px;">
+        {{ day.label }}
+      </span>
+      {% endif %}
+
+    </div>
+    {% endfor %}
+  </div>
+  <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: var(--text-tertiary);">
+    <span>{{ start_date|date:"M j, Y" }}</span>
+    <span>{{ end_date|date:"M j, Y" }}</span>
+  </div>
+</div>
+
+<!-- Chart 2: 24-Hour Productivity Rhythm Heat-Map -->
+<div class="ios-card" style="margin-bottom: 24px;">
+  <div style="margin-bottom: 14px;">
+    <h3 style="font-size: 16px; font-weight: 600;">24-Hour Circadian Rhythm</h3>
+    <p style="font-size: 12.5px; color: var(--text-secondary);">Which hours of the 24-hour cycle you dedicate the most time to.</p>
+  </div>
+
+  <div class="rhythm-chart-grid">
+    {% for r in rhythm_stats %}
+    <div class="rhythm-col" title="Hour {{ r.label }}: {{ r.hours_spent }} total hours">
+      <div class="rhythm-bar" style="height: {{ r.height_pct }}%;
+        {% if r.height_pct > 70 %}background: var(--apple-blue);
+        {% elif r.height_pct > 30 %}background: var(--apple-indigo);
+        {% elif r.height_pct > 0 %}background: var(--apple-teal);
+        {% else %}background: var(--bg-subtle);{% endif %}">
+      </div>
+      <div class="rhythm-lbl">{{ r.label }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Chart 3: Real-World Category Breakdown -->
+<div class="ios-card">
+  <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">Category Distribution</h3>
+  <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 20px;">
+    Investment across life areas over the selected {{ total_days }}-day range.
+  </p>
+
+  {% if category_list %}
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      {% for cat in category_list %}
+      <div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: {{ cat.color }};">{% category_sf_icon cat.name "sf-icon-sm" %}</span>
+            <span style="font-size: 13.5px; font-weight: 500;">{{ cat.name }}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 13.5px; font-weight: 600;">{{ cat.hours }}h</span>
+            <span style="font-size: 12px; color: var(--text-secondary); min-width: 40px; text-align: right;">{{ cat.percentage }}%</span>
+          </div>
+        </div>
+
+        <div style="height: 6px; background: var(--bg-subtle); border-radius: var(--radius-full); overflow: hidden;">
+          <div style="height: 100%; border-radius: var(--radius-full); background: {{ cat.color }}; width: {{ cat.percentage }}%; transition: width 0.6s var(--ease-apple);"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 36px 20px; color: var(--text-tertiary); font-size: 13.5px;">
+      No activity recorded in this date range.
+    </div>
+  {% endif %}
+</div>
+
+<!-- Email Report Modal Sheet -->
+<div id="shareEmailModal" class="ios-modal-backdrop">
+  <div class="ios-modal-card">
+    <div class="modal-drag-indicator"></div>
+    <div class="modal-header">
+      <h3 class="modal-title">Share Report via Email</h3>
+      <button onclick="document.getElementById('shareEmailModal').classList.remove('open')" class="ios-icon-btn" style="width: 28px; height: 28px;">
+        {% sf_icon "xmark" "sf-icon-sm" %}
+      </button>
+    </div>
+
+    <p style="font-size: 13.5px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.45;">
+      Dispatch an executive performance report for <strong>{{ start_date|date:"M j" }} – {{ end_date|date:"M j, Y" }}</strong>.
+    </p>
+
+    <div style="background: var(--bg-subtle); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 18px; font-size: 12.5px; color: var(--text-secondary);">
+      <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Included Attachments:</div>
+      <div>• <strong>PDF Report</strong>: Executive summaries, tables & charts</div>
+      <div>• <strong>CSV Spreadsheet</strong>: Raw hourly activities data</div>
+    </div>
+
+    {% if not smtp_configured %}
+    <div style="background: rgba(255, 149, 0, 0.08); border: 1px solid var(--apple-orange); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: var(--text-primary);">
+      Note: Custom SMTP host not configured in Settings. Email will be sent using system backend.
+    </div>
+    {% endif %}
+
+    <form id="emailReportForm" onsubmit="event.preventDefault(); sendEmailReportAjax();">
+      <div class="ios-form-group">
+        <label class="ios-label">Recipient Email Address</label>
+        <input type="email" id="emailRecipientInput" class="ios-input" value="{{ user.email }}" placeholder="recipient@domain.com" required>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 22px;">
+        <button type="submit" id="sendEmailBtn" class="ios-btn-primary" style="flex: 2; height: 42px;">
+          {% sf_icon "envelope" "sf-icon-sm" %}
+          <span>Send Email Report</span>
+        </button>
+        <button type="button" onclick="document.getElementById('shareEmailModal').classList.remove('open')" class="ios-btn-secondary" style="flex: 1; height: 42px;">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function sendEmailReportAjax() {
+    const email = document.getElementById('emailRecipientInput').value.trim();
+    const btn = document.getElementById('sendEmailBtn');
+    if (!email) return;
+
+    btn.disabled = true;
+    btn.innerText = 'Sending...';
+
+    const payload = {
+      recipient_email: email,
+      start_date: '{{ start_date|date:"Y-m-d" }}',
+      end_date: '{{ end_date|date:"Y-m-d" }}',
+      range: '{{ range_param }}'
+    };
+
+    try {
+      const res = await fetch('/analytics/share-email/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      btn.disabled = false;
+      btn.innerHTML = `<span>Send Email Report</span>`;
+
+      if (data.status === 'success') {
+        showiOSToast('Report sent with CSV and PDF!', '✓');
+        document.getElementById('shareEmailModal').classList.remove('open');
+      } else {
+        alert(data.message || 'Failed to send email');
+      }
+    } catch (e) {
+      btn.disabled = false;
+      btn.innerHTML = `<span>Send Email Report</span>`;
+      alert('Error delivering email: ' + e);
+    }
+  }
+</script>
+{% endblock %}

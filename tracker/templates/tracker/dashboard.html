@@ -1,0 +1,460 @@
+{% extends "tracker/base.html" %}
+{% load apple_icons %}
+
+{% block title %}Today — Habit{% endblock %}
+
+{% block content %}
+<input type="hidden" id="currentDateStr" value="{{ current_date|date:'Y-m-d' }}">
+
+<!-- Header Section -->
+<div class="hero-header">
+  <div class="hero-meta-row">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span class="date-badge">
+        {% sf_icon "target" "sf-icon-sm" %}
+        <span>{{ profile.get_goal_display_text }}</span>
+      </span>
+      <span class="date-badge" style="color: var(--apple-orange); background: rgba(255, 149, 0, 0.08);">
+        {% sf_icon "flame" "sf-icon-sm" %}
+        <span>{{ profile.streak_count }} Days</span>
+      </span>
+    </div>
+
+    <!-- Date Navigator -->
+    <div class="date-nav-group">
+      <a href="?date={{ prev_date|date:'Y-m-d' }}" class="date-nav-btn" title="Previous Day">
+        {% sf_icon "chevron_left" "sf-icon-sm" %}
+      </a>
+      <a href="?date={{ today|date:'Y-m-d' }}" class="date-nav-label">
+        {% if is_today %}Today, {% endif %}{{ current_date|date:"D, M j" }}
+      </a>
+      <a href="?date={{ next_date|date:'Y-m-d' }}" class="date-nav-btn" title="Next Day">
+        {% sf_icon "chevron_right" "sf-icon-sm" %}
+      </a>
+    </div>
+  </div>
+
+  <div class="hero-title-row">
+    <div>
+      <h1 class="hero-title">24 Hours</h1>
+      <p class="hero-subtitle">Make every hour intentional.</p>
+    </div>
+
+    <!-- Actions (Template button removed as requested, accessible via Bulk Upload) -->
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <button onclick="document.getElementById('bulkUploadModal').classList.add('open')" class="ios-btn-secondary" title="Import activity spreadsheet">
+        {% sf_icon "upload" "sf-icon-sm" %}
+        <span>Bulk Upload</span>
+      </button>
+      <button onclick="openLogModal(new Date().getHours())" class="ios-btn-primary">
+        {% sf_icon "plus" "sf-icon-sm" %}
+        <span>Log Hour</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Precision Stopwatch -->
+<div class="live-timer-banner">
+  <div class="timer-left">
+    <div class="timer-indicator" id="timerIndicator"></div>
+    <div>
+      <div class="timer-label">Stopwatch</div>
+      <div class="timer-digits" id="timerDigits">00:00:00</div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <button id="timerToggleBtn" class="ios-btn-secondary">
+      Start
+    </button>
+    <button id="timerLogBtn" class="ios-btn-primary" style="background: var(--apple-green);">
+      Log to Hour
+    </button>
+  </div>
+</div>
+
+<!-- Activity Rings & Quote Row -->
+<div class="apple-widgets-grid">
+  
+  <!-- Activity Rings Widget -->
+  <div class="ios-card rings-card">
+    <div class="rings-svg-wrapper">
+      <svg width="150" height="150" viewBox="0 0 150 150">
+        <!-- Background Tracks -->
+        <circle cx="75" cy="75" r="64" stroke="rgba(255, 45, 85, 0.12)" stroke-width="11" fill="none" />
+        <circle cx="75" cy="75" r="49" stroke="rgba(52, 199, 89, 0.12)" stroke-width="11" fill="none" />
+        <circle cx="75" cy="75" r="34" stroke="rgba(0, 113, 227, 0.12)" stroke-width="11" fill="none" />
+
+        <!-- Outer Ring (Move / Active Time) -->
+        <circle cx="75" cy="75" r="64"
+          stroke="url(#ringMoveGrad)"
+          stroke-width="11"
+          stroke-linecap="round"
+          fill="none"
+          stroke-dasharray="402.12"
+          stroke-dashoffset="{{ 402.12|floatformat:2 }}"
+          transform="rotate(-90 75 75)"
+          style="transition: stroke-dashoffset 0.8s var(--ease-apple); stroke-dashoffset: calc(402.12px - (402.12px * {{ ring_move_pct }} / 100));" />
+
+        <!-- Middle Ring (Health & Vitality) -->
+        <circle cx="75" cy="75" r="49"
+          stroke="url(#ringHealthGrad)"
+          stroke-width="11"
+          stroke-linecap="round"
+          fill="none"
+          stroke-dasharray="307.88"
+          stroke-dashoffset="{{ 307.88|floatformat:2 }}"
+          transform="rotate(-90 75 75)"
+          style="transition: stroke-dashoffset 0.8s var(--ease-apple); stroke-dashoffset: calc(307.88px - (307.88px * {{ ring_health_pct }} / 100));" />
+
+        <!-- Inner Ring (Deep Work) -->
+        <circle cx="75" cy="75" r="34"
+          stroke="url(#ringFocusGrad)"
+          stroke-width="11"
+          stroke-linecap="round"
+          fill="none"
+          stroke-dasharray="213.63"
+          stroke-dashoffset="{{ 213.63|floatformat:2 }}"
+          transform="rotate(-90 75 75)"
+          style="transition: stroke-dashoffset 0.8s var(--ease-apple); stroke-dashoffset: calc(213.63px - (213.63px * {{ ring_focus_pct }} / 100));" />
+
+        <defs>
+          <linearGradient id="ringMoveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FF2D55" />
+            <stop offset="100%" stop-color="#FF9500" />
+          </linearGradient>
+          <linearGradient id="ringHealthGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#34C759" />
+            <stop offset="100%" stop-color="#30B0C7" />
+          </linearGradient>
+          <linearGradient id="ringFocusGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#0071E3" />
+            <stop offset="100%" stop-color="#5856D6" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+
+    <!-- Ring Legend -->
+    <div class="rings-legend">
+      <div class="legend-item">
+        <div class="legend-label-col">
+          <div class="legend-color-dot" style="background: #FF2D55;"></div>
+          <div>
+            <div class="legend-title">Target Time</div>
+            <div class="legend-subtitle">Goal: {{ target_hours }}h</div>
+          </div>
+        </div>
+        <div class="legend-val" style="color: #FF2D55;">{{ total_hours }}h ({{ progress_pct }}%)</div>
+      </div>
+
+      <div class="legend-item">
+        <div class="legend-label-col">
+          <div class="legend-color-dot" style="background: #34C759;"></div>
+          <div>
+            <div class="legend-title">Health</div>
+            <div class="legend-subtitle">Goal: 1.5h</div>
+          </div>
+        </div>
+        <div class="legend-val" style="color: #34C759;">{{ health_hours }}h</div>
+      </div>
+
+      <div class="legend-item">
+        <div class="legend-label-col">
+          <div class="legend-color-dot" style="background: #0071E3;"></div>
+          <div>
+            <div class="legend-title">Deep Focus</div>
+            <div class="legend-subtitle">Goal: 4.0h</div>
+          </div>
+        </div>
+        <div class="legend-val" style="color: #0071E3;">{{ deep_work_hours }}h</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Motivational Quote Card -->
+  <div class="ios-card quote-card">
+    <div>
+      <div class="quote-badge" id="quoteTag">
+        Focus
+      </div>
+      <p class="quote-text" id="quoteText">
+        "{{ quote.quote }}"
+      </p>
+    </div>
+
+    <div class="quote-footer">
+      <div class="quote-author" id="quoteAuthor">— {{ quote.author }}</div>
+      <button id="refreshQuoteBtn" class="ios-btn-secondary" style="padding: 5px 12px; font-size: 12px;" title="Refresh quote">
+        Next
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- 24-Hour Schedule Section with Grid / List View Toggle -->
+<div style="margin-bottom: 40px;">
+  <div class="timeline-section-header">
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <div class="timeline-section-title">Schedule</div>
+
+      <!-- Segmented View Toggle with Apple SF Symbols -->
+      <div class="view-mode-toggle">
+        <button id="viewListBtn" class="view-btn active" onclick="switchScheduleView('list')">
+          {% sf_icon "list" "sf-icon-sm" %}
+          <span>List</span>
+        </button>
+        <button id="viewGridBtn" class="view-btn" onclick="switchScheduleView('grid')">
+          {% sf_icon "grid" "sf-icon-sm" %}
+          <span>Grid</span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Filter Pills -->
+    <div class="timeline-legend-badges">
+      <span class="cat-pill active" onclick="filterTimeline('all', this)">All (24h)</span>
+      <span class="cat-pill" onclick="filterTimeline('productive', this)">Productive</span>
+      <span class="cat-pill" onclick="filterTimeline('sleep', this)">Rest</span>
+      <span class="cat-pill" onclick="filterTimeline('logged', this)">Logged</span>
+    </div>
+  </div>
+
+  <!-- 1. List View (Vertical 24-Hour Ruler) -->
+  <div class="timeline-grid fade-transition" id="timelineListView">
+    {% for slot in timeline_hours %}
+    <div class="hour-row {% if slot.is_current %}is-current-hour{% endif %}"
+         data-hour="{{ slot.hour }}"
+         data-has-log="{% if slot.log %}true{% else %}false{% endif %}"
+         data-cat-name="{{ slot.log.category.name|lower|default:'' }}"
+         data-is-productive="{% if slot.log.category.is_productive %}true{% else %}false{% endif %}"
+         onclick="openLogModal({{ slot.hour }}, {
+           title: '{{ slot.log.title|escapejs|default:'' }}',
+           category_id: '{{ slot.log.category.id|default:'' }}',
+           duration_val: '{{ slot.log.duration_display|default:'1.0' }}',
+           unit_type: '{{ slot.log.unit_type|default:'hours' }}',
+           energy: {{ slot.log.energy_level|default:4 }},
+           notes: '{{ slot.log.notes|escapejs|default:'' }}'
+         })">
+      
+      <!-- Hour Label -->
+      <div class="hour-time-badge">
+        <span>{{ slot.label }}</span>
+        <span class="sub-24">{{ slot.label_24 }}</span>
+      </div>
+
+      <!-- Activity Content -->
+      <div class="hour-content">
+        {% if slot.log %}
+          <div class="hour-cat-icon" style="background: {{ slot.log.category.color|default:'#0071E3' }}18; color: {{ slot.log.category.color|default:'#0071E3' }};">
+            {% category_sf_icon slot.log.category.name "sf-icon-sm" %}
+          </div>
+          <div class="hour-details">
+            <span class="hour-title">{{ slot.log.title }}</span>
+            {% if slot.log.notes %}
+              <span class="hour-notes">{{ slot.log.notes }}</span>
+            {% else %}
+              <span class="hour-notes" style="color: var(--text-tertiary);">{{ slot.log.category.name|default:'General' }}</span>
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="hour-cat-icon" style="color: var(--text-tertiary);">
+            {% sf_icon "plus" "sf-icon-sm" %}
+          </div>
+          <div class="hour-details">
+            <span class="hour-empty-placeholder">
+              Add entry...
+            </span>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Duration Pill -->
+      <div class="hour-actions">
+        {% if slot.log %}
+          <span class="duration-pill" style="background: {{ slot.log.category.color|default:'var(--apple-blue)' }};">
+            {{ slot.log.duration_display }}
+          </span>
+        {% else %}
+          <button class="add-hour-btn" title="Add Activity">
+            {% sf_icon "plus" "sf-icon-sm" %}
+          </button>
+        {% endif %}
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- 2. Grid View (Matrix Calendar 24-Block Layout) -->
+  <div class="timeline-matrix-grid fade-transition" id="timelineGridView" style="display: none;">
+    {% for slot in timeline_hours %}
+    <div class="grid-hour-card {% if slot.is_current %}is-current{% endif %}"
+         data-hour="{{ slot.hour }}"
+         data-has-log="{% if slot.log %}true{% else %}false{% endif %}"
+         data-cat-name="{{ slot.log.category.name|lower|default:'' }}"
+         data-is-productive="{% if slot.log.category.is_productive %}true{% else %}false{% endif %}"
+         onclick="openLogModal({{ slot.hour }}, {
+           title: '{{ slot.log.title|escapejs|default:'' }}',
+           category_id: '{{ slot.log.category.id|default:'' }}',
+           duration_val: '{{ slot.log.duration_display|default:'1.0' }}',
+           unit_type: '{{ slot.log.unit_type|default:'hours' }}',
+           energy: {{ slot.log.energy_level|default:4 }},
+           notes: '{{ slot.log.notes|escapejs|default:'' }}'
+         })">
+
+      <div class="grid-hour-header">
+        <span class="grid-hour-time">{{ slot.label_24 }}</span>
+        {% if slot.log %}
+          <span style="color: {{ slot.log.category.color|default:'#0071E3' }};">
+            {% category_sf_icon slot.log.category.name "sf-icon-sm" %}
+          </span>
+        {% else %}
+          <span style="color: var(--text-tertiary);">
+            {% sf_icon "plus" "sf-icon-sm" %}
+          </span>
+        {% endif %}
+      </div>
+
+      <div class="grid-hour-content">
+        {% if slot.log %}
+          <div class="grid-hour-title">{{ slot.log.title }}</div>
+        {% else %}
+          <div class="grid-hour-empty">Unscheduled</div>
+        {% endif %}
+      </div>
+
+      <div class="grid-hour-footer">
+        {% if slot.log %}
+          <span class="duration-pill" style="background: {{ slot.log.category.color|default:'var(--apple-blue)' }}; font-size: 10px; padding: 2px 7px;">
+            {{ slot.log.duration_display }}
+          </span>
+          <span style="font-size: 11px; color: var(--text-secondary); font-weight: 500; display: inline-flex; align-items: center; gap: 3px;">
+            {% sf_icon "bolt" "sf-icon-sm" %}
+            <span>{{ slot.log.energy_level }}</span>
+          </span>
+        {% else %}
+          <span style="font-size: 11px; color: var(--text-tertiary);">{{ slot.label }}</span>
+        {% endif %}
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<!-- Bulk Spreadsheet Upload Modal -->
+<div id="bulkUploadModal" class="ios-modal-backdrop">
+  <div class="ios-modal-card">
+    <div class="modal-drag-indicator"></div>
+    <div class="modal-header">
+      <h3 class="modal-title">Bulk Activity Import</h3>
+      <button onclick="document.getElementById('bulkUploadModal').classList.remove('open')" class="ios-icon-btn" style="width: 28px; height: 28px;">
+        {% sf_icon "xmark" "sf-icon-sm" %}
+      </button>
+    </div>
+
+    <p style="font-size: 13.5px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.45;">
+      Update multiple hours simultaneously using a CSV spreadsheet across any dates and hours.
+    </p>
+
+    <!-- Download Instruction Callout Inside Modal -->
+    <div style="background: var(--bg-subtle); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px;">
+      <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">Spreadsheet Template & Instructions</div>
+      <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4;">
+        Columns: <code>Date</code>, <code>Hour (0-23)</code>, <code>Category</code>, <code>Activity Title</code>, <code>Duration Value</code>, <code>Unit</code>, <code>Energy Level</code>, <code>Notes</code>.
+      </div>
+      <a href="{% url 'download_template' %}" class="ios-btn-secondary" style="font-size: 12px; padding: 6px 14px; gap: 6px;">
+        {% sf_icon "download" "sf-icon-sm" %}
+        <span>Download Template CSV</span>
+      </a>
+    </div>
+
+    <!-- Upload Form -->
+    <form action="{% url 'bulk_upload' %}" method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="ios-form-group">
+        <label class="ios-label">Choose Completed Spreadsheet (.CSV)</label>
+        <input type="file" name="file" accept=".csv,text/csv" class="ios-input" required style="padding: 8px;">
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 22px;">
+        <button type="submit" class="ios-btn-primary" style="flex: 2; height: 42px;">
+          {% sf_icon "upload" "sf-icon-sm" %}
+          <span>Upload & Import</span>
+        </button>
+        <button type="button" onclick="document.getElementById('bulkUploadModal').classList.remove('open')" class="ios-btn-secondary" style="flex: 1; height: 42px;">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // List View / Grid View Switcher with smooth cross-fade
+  function switchScheduleView(mode) {
+    const listView = document.getElementById('timelineListView');
+    const gridView = document.getElementById('timelineGridView');
+    const listBtn = document.getElementById('viewListBtn');
+    const gridBtn = document.getElementById('viewGridBtn');
+
+    if (mode === 'grid') {
+      listView.style.display = 'none';
+      gridView.style.display = 'grid';
+      listBtn.classList.remove('active');
+      gridBtn.classList.add('active');
+      localStorage.setItem('habit_schedule_view', 'grid');
+    } else {
+      listView.style.display = 'flex';
+      gridView.style.display = 'none';
+      listBtn.classList.add('active');
+      gridBtn.classList.remove('active');
+      localStorage.setItem('habit_schedule_view', 'list');
+    }
+  }
+
+  // Restore saved view preference
+  document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('habit_schedule_view');
+    if (saved === 'grid') {
+      switchScheduleView('grid');
+    }
+  });
+
+  // Client-side quick filter
+  function filterTimeline(filterType, element) {
+    document.querySelectorAll('.timeline-legend-badges .cat-pill').forEach(p => p.classList.remove('active'));
+    element.classList.add('active');
+
+    const rows = document.querySelectorAll('.hour-row, .grid-hour-card');
+    rows.forEach(row => {
+      const hasLog = row.dataset.hasLog === 'true';
+      const cat = row.dataset.catName || '';
+      const isProductive = row.dataset.isProductive === 'true';
+
+      let show = false;
+      if (filterType === 'all') {
+        show = true;
+      } else if (filterType === 'logged') {
+        show = hasLog;
+      } else if (filterType === 'productive') {
+        show = hasLog && isProductive;
+      } else if (filterType === 'sleep') {
+        show = hasLog && cat.includes('sleep');
+      }
+
+      if (row.classList.contains('hour-row')) {
+        row.style.display = show ? 'grid' : 'none';
+      } else {
+        row.style.display = show ? 'flex' : 'none';
+      }
+    });
+  }
+</script>
+{% endblock %}

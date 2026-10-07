@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -218,3 +219,21 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.env
+
+# Django Database and Logs
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+*.log
+
+# OS & IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,401 @@
+{% extends "tracker/base.html" %}
+{% load apple_icons %}
+
+{% block title %}Settings — Habit{% endblock %}
+
+{% block content %}
+<div class="hero-header">
+  <div class="hero-title-row">
+    <div>
+      <h1 class="hero-title">Settings</h1>
+      <p class="hero-subtitle">Manage goals, targets, SMTP mail hosts, and habit categories.</p>
+    </div>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 680px; margin: 0 auto;">
+  
+  <!-- Profile & Goal Form -->
+  <div class="ios-card">
+    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 18px;">Profile & Targets</h3>
+
+    <form method="POST" action="{% url 'settings' %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="profile">
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="ios-form-group">
+          <label class="ios-label">First Name</label>
+          <input type="text" name="first_name" class="ios-input" value="{{ user.first_name }}" placeholder="Name">
+        </div>
+
+        <div class="ios-form-group">
+          <label class="ios-label">Email</label>
+          <input type="email" name="email" class="ios-input" value="{{ user.email }}" placeholder="you@domain.com">
+        </div>
+      </div>
+
+      <div class="ios-form-group">
+        <label class="ios-label">Primary Goal</label>
+        <select name="primary_goal" class="ios-select">
+          {% for val, label in goal_choices %}
+          <option value="{{ val }}" {% if profile.primary_goal == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="ios-form-group">
+        <label class="ios-label">Daily Target Active Hours</label>
+        <input type="number" name="daily_target_hours" class="ios-input" min="1" max="24" step="0.5" value="{{ profile.daily_target_hours }}">
+      </div>
+
+      <div class="ios-form-group">
+        <label class="ios-label">Personal Motto</label>
+        <input type="text" name="bio_motto" class="ios-input" value="{{ profile.bio_motto }}" placeholder="Making every hour count.">
+      </div>
+
+      <div class="ios-form-group">
+        <label class="ios-label">Appearance</label>
+        <select name="theme" class="ios-select">
+          <option value="system" {% if profile.theme == 'system' %}selected{% endif %}>System Auto</option>
+          <option value="light" {% if profile.theme == 'light' %}selected{% endif %}>Light</option>
+          <option value="dark" {% if profile.theme == 'dark' %}selected{% endif %}>Dark</option>
+        </select>
+      </div>
+
+      <div style="margin: 18px 0;">
+        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px;">
+          <input type="checkbox" name="notifications_enabled" {% if profile.notifications_enabled %}checked{% endif %} style="width: 16px; height: 16px; accent-color: var(--apple-blue);">
+          <span>Enable audio chimes & reminder notifications</span>
+        </label>
+      </div>
+
+      <button type="submit" class="ios-btn-primary" style="height: 40px; width: 100%;">
+        Save Preferences
+      </button>
+    </form>
+  </div>
+
+  <!-- SMTP Mail Server Configuration Card -->
+  <div class="ios-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+      <div>
+        <h3 style="font-size: 16px; font-weight: 600;">SMTP Email Configuration</h3>
+        <p style="font-size: 12.5px; color: var(--text-secondary);">
+          Send performance reports & spreadsheets via Gmail, iCloud, or custom SMTP host.
+        </p>
+      </div>
+      <span class="date-badge" style="{% if smtp_settings.is_active %}color: var(--apple-green); background: rgba(52, 199, 89, 0.12);{% else %}color: var(--text-tertiary);{% endif %}">
+        {% if smtp_settings.is_active %}Active{% else %}Disabled{% endif %}
+      </span>
+    </div>
+
+    <form method="POST" action="{% url 'settings' %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="smtp">
+
+      <!-- Host & Port Presets Helper -->
+      <div style="display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap;">
+        <span style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; font-weight: 600; line-height: 24px;">Presets:</span>
+        <button type="button" class="cat-pill" onclick="applySmtpPreset('gmail')">Gmail</button>
+        <button type="button" class="cat-pill" onclick="applySmtpPreset('icloud')">iCloud</button>
+        <button type="button" class="cat-pill" onclick="applySmtpPreset('outlook')">Outlook</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+        <div class="ios-form-group">
+          <label class="ios-label">SMTP Host</label>
+          <input type="text" id="smtpHostInput" name="smtp_host" class="ios-input" value="{{ smtp_settings.host }}" placeholder="smtp.gmail.com" required>
+        </div>
+        <div class="ios-form-group">
+          <label class="ios-label">Port</label>
+          <input type="number" id="smtpPortInput" name="smtp_port" class="ios-input" value="{{ smtp_settings.port }}" placeholder="587" required>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="ios-form-group">
+          <label class="ios-label">Username / Email</label>
+          <input type="text" id="smtpUserInput" name="smtp_username" class="ios-input" value="{{ smtp_settings.username }}" placeholder="you@gmail.com">
+        </div>
+        <div class="ios-form-group">
+          <label class="ios-label">Password / App Password</label>
+          <input type="password" id="smtpPassInput" name="smtp_password" class="ios-input" value="{{ smtp_settings.password }}" placeholder="App-specific password">
+        </div>
+      </div>
+
+      <div class="ios-form-group">
+        <label class="ios-label">Sender Email Address</label>
+        <input type="email" id="smtpSenderInput" name="smtp_sender_email" class="ios-input" value="{{ smtp_settings.sender_email }}" placeholder="notifications@yourdomain.com">
+      </div>
+
+      <div style="display: flex; gap: 20px; margin: 16px 0; flex-wrap: wrap;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px;">
+          <input type="checkbox" id="smtpTlsInput" name="smtp_use_tls" {% if smtp_settings.use_tls %}checked{% endif %} style="width: 16px; height: 16px; accent-color: var(--apple-blue);">
+          <span>Use TLS</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px;">
+          <input type="checkbox" id="smtpSslInput" name="smtp_use_ssl" {% if smtp_settings.use_ssl %}checked{% endif %} style="width: 16px; height: 16px; accent-color: var(--apple-blue);">
+          <span>Use SSL</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px; font-weight: 600;">
+          <input type="checkbox" name="smtp_is_active" {% if smtp_settings.is_active %}checked{% endif %} style="width: 16px; height: 16px; accent-color: var(--apple-blue);">
+          <span>Enable for Reports</span>
+        </label>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <button type="submit" class="ios-btn-primary" style="flex: 2; height: 40px;">
+          Save SMTP Settings
+        </button>
+        <button type="button" onclick="testSmtpAjax()" id="testSmtpBtn" class="ios-btn-secondary" style="flex: 1; height: 40px;">
+          Test Connection
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Reminders Card -->
+  <div class="ios-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+      <div>
+        <h3 style="font-size: 16px; font-weight: 600;">Reminders</h3>
+        <p style="font-size: 12.5px; color: var(--text-secondary);">Prompts to record your hours.</p>
+      </div>
+      <button onclick="document.getElementById('newReminderForm').style.display = 'block'" class="ios-btn-secondary" style="padding: 5px 12px; font-size: 12.5px; gap: 4px;">
+        {% sf_icon "plus" "sf-icon-sm" %}
+        <span>Add</span>
+      </button>
+    </div>
+
+    <!-- New Reminder Mini-Form -->
+    <div id="newReminderForm" style="display: none; background: var(--bg-subtle); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-bottom: 10px;">
+        <input type="text" id="newReminderTitle" class="ios-input" placeholder="Title" value="Log hourly activities">
+        <input type="time" id="newReminderTime" class="ios-input" value="21:00">
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button onclick="createReminderAjax()" class="ios-btn-primary" style="padding: 5px 12px; font-size: 12.5px;">Save</button>
+        <button onclick="document.getElementById('newReminderForm').style.display = 'none'" class="ios-btn-secondary" style="padding: 5px 12px; font-size: 12.5px;">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Reminder List -->
+    <div id="remindersList" style="display: flex; flex-direction: column; gap: 8px;">
+      <!-- Populated dynamically -->
+    </div>
+  </div>
+
+  <!-- Custom Categories Card -->
+  <div class="ios-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+      <div>
+        <h3 style="font-size: 16px; font-weight: 600;">Categories</h3>
+        <p style="font-size: 12.5px; color: var(--text-secondary);">Real-world habit categories.</p>
+      </div>
+      <button onclick="document.getElementById('newCatForm').style.display = 'block'" class="ios-btn-secondary" style="padding: 5px 12px; font-size: 12.5px; gap: 4px;">
+        {% sf_icon "plus" "sf-icon-sm" %}
+        <span>New</span>
+      </button>
+    </div>
+
+    <!-- Add Category Mini-Form -->
+    <div id="newCatForm" style="display: none; background: var(--bg-subtle); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+      <div style="display: grid; grid-template-columns: 1fr 60px; gap: 8px; margin-bottom: 10px;">
+        <input type="text" id="newCatName" class="ios-input" placeholder="Category Name">
+        <input type="color" id="newCatColor" class="ios-input" value="#0071E3" style="padding: 2px; height: 38px;">
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button onclick="createCustomCategoryAjax()" class="ios-btn-primary" style="padding: 5px 12px; font-size: 12.5px;">Save</button>
+        <button onclick="document.getElementById('newCatForm').style.display = 'none'" class="ios-btn-secondary" style="padding: 5px 12px; font-size: 12.5px;">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Category Pills -->
+    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+      {% for cat in categories %}
+      <div style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--radius-full); background: var(--bg-subtle); border: 1px solid var(--border-hairline); font-size: 12.5px; font-weight: 500;">
+        <span style="color: {{ cat.color }};">{% category_sf_icon cat.name "sf-icon-sm" %}</span>
+        <span>{{ cat.name }}</span>
+        <span style="width: 6px; height: 6px; border-radius: 50%; background: {{ cat.color }};"></span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function applySmtpPreset(service) {
+    const hostInput = document.getElementById('smtpHostInput');
+    const portInput = document.getElementById('smtpPortInput');
+    const tlsInput = document.getElementById('smtpTlsInput');
+    const sslInput = document.getElementById('smtpSslInput');
+
+    if (service === 'gmail') {
+      hostInput.value = 'smtp.gmail.com';
+      portInput.value = 587;
+      tlsInput.checked = true;
+      sslInput.checked = false;
+    } else if (service === 'icloud') {
+      hostInput.value = 'smtp.mail.me.com';
+      portInput.value = 587;
+      tlsInput.checked = true;
+      sslInput.checked = false;
+    } else if (service === 'outlook') {
+      hostInput.value = 'smtp.office365.com';
+      portInput.value = 587;
+      tlsInput.checked = true;
+      sslInput.checked = false;
+    }
+  }
+
+  async function testSmtpAjax() {
+    const btn = document.getElementById('testSmtpBtn');
+    btn.disabled = true;
+    btn.innerText = 'Testing...';
+
+    const payload = {
+      host: document.getElementById('smtpHostInput').value.trim(),
+      port: document.getElementById('smtpPortInput').value.trim(),
+      username: document.getElementById('smtpUserInput').value.trim(),
+      password: document.getElementById('smtpPassInput').value.trim(),
+      use_tls: document.getElementById('smtpTlsInput').checked,
+      use_ssl: document.getElementById('smtpSslInput').checked,
+      sender_email: document.getElementById('smtpSenderInput').value.trim(),
+      recipient_email: '{{ user.email }}' || document.getElementById('smtpUserInput').value.trim()
+    };
+
+    try {
+      const res = await fetch('/api/smtp/test/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      btn.disabled = false;
+      btn.innerText = 'Test Connection';
+
+      if (data.status === 'success') {
+        showiOSToast('SMTP Verified! Test message delivered.', '✓');
+      } else {
+        alert(data.message || 'SMTP Connection failed.');
+      }
+    } catch (e) {
+      btn.disabled = false;
+      btn.innerText = 'Test Connection';
+      alert('Error: ' + e);
+    }
+  }
+
+  async function loadReminders() {
+    const container = document.getElementById('remindersList');
+    try {
+      const res = await fetch('/api/reminders/');
+      const data = await res.json();
+      if (data.status === 'success') {
+        if (data.reminders.length === 0) {
+          container.innerHTML = '<div style="color: var(--text-tertiary); font-size: 13px;">No reminders set. Click + Add or ask Assistant.</div>';
+          return;
+        }
+        container.innerHTML = data.reminders.map(r => `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-subtle); border-radius: var(--radius-sm);">
+            <div>
+              <div style="font-size: 13.5px; font-weight: 600;">${r.title}</div>
+              <div style="font-size: 12px; color: var(--apple-blue); font-weight: 500;">⏰ ${r.time_display}</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button onclick="toggleReminder(${r.id})" class="ios-btn-secondary" style="padding: 3px 8px; font-size: 11px;">
+                ${r.is_active ? 'Active' : 'Muted'}
+              </button>
+              <button onclick="deleteReminder(${r.id})" class="ios-icon-btn" style="width: 26px; height: 26px; color: var(--apple-red); font-size: 11px;" title="Delete">
+                ✕
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function createReminderAjax() {
+    const title = document.getElementById('newReminderTitle').value.trim();
+    const time = document.getElementById('newReminderTime').value;
+    if (!time) return;
+
+    try {
+      const res = await fetch('/api/reminders/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+        body: JSON.stringify({ title, time })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showiOSToast('Reminder saved', '🔔');
+        document.getElementById('newReminderForm').style.display = 'none';
+        loadReminders();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function toggleReminder(id) {
+    try {
+      const res = await fetch(`/api/reminders/${id}/toggle/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken }
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        loadReminders();
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  async function deleteReminder(id) {
+    if (!confirm('Delete this reminder?')) return;
+    try {
+      const res = await fetch(`/api/reminders/${id}/delete/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken }
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showiOSToast('Reminder removed', '🗑️');
+        loadReminders();
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  async function createCustomCategoryAjax() {
+    const name = document.getElementById('newCatName').value.trim();
+    const color = document.getElementById('newCatColor').value;
+    if (!name) {
+      alert('Please enter category name');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/category/add/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+        body: JSON.stringify({ name, color })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showiOSToast('Category created', '✓');
+        setTimeout(() => location.reload(), 300);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', loadReminders);
+</script>
+{% endblock %}

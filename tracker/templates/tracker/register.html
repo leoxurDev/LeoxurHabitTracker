@@ -1,0 +1,74 @@
+{% extends "tracker/base.html" %}
+
+{% block title %}Create Account — Habit{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 75vh; padding: 24px 0;">
+  <div class="ios-card" style="width: 100%; max-width: 440px; padding: 38px 32px;">
+    
+    <!-- Header -->
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div style="width: 48px; height: 48px; border-radius: 12px; background: var(--text-primary); color: var(--bg-canvas); margin: 0 auto 16px auto; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700;">
+        H
+      </div>
+      <h1 style="font-size: 22px; font-weight: 700; letter-spacing: -0.024em;">Create Account</h1>
+      <p style="font-size: 13.5px; color: var(--text-secondary); margin-top: 4px;">
+        Set up your 24-hour routine and daily goals.
+      </p>
+    </div>
+
+    <!-- Registration Form -->
+    <form method="POST" action="{% url 'register' %}">
+      {% csrf_token %}
+      
+      <div class="ios-form-group">
+        <label class="ios-label">Username</label>
+        <input type="text" name="username" class="ios-input" placeholder="Username" required>
+      </div>
+
+      <div class="ios-form-group">
+        <label class="ios-label">Email (Optional)</label>
+        <input type="email" name="email" class="ios-input" placeholder="email@example.com">
+      </div>
+
+      <!-- Goal Selection -->
+      <div class="ios-form-group">
+        <label class="ios-label">Primary Life Goal</label>
+        <select name="primary_goal" class="ios-select" required>
+          {% for val, label in goal_choices %}
+          <option value="{{ val }}" {% if val == 'focus' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="ios-form-group">
+        <label class="ios-label">Daily Target Active Hours</label>
+        <input type="number" name="daily_target_hours" class="ios-input" min="1" max="24" step="0.5" value="8.0" required>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="ios-form-group">
+          <label class="ios-label">Password</label>
+          <input type="password" name="password" class="ios-input" placeholder="••••••••" required>
+        </div>
+        <div class="ios-form-group">
+          <label class="ios-label">Confirm</label>
+          <input type="password" name="password_confirm" class="ios-input" placeholder="••••••••" required>
+        </div>
+      </div>
+
+      <button type="submit" class="ios-btn-primary" style="width: 100%; height: 44px; font-size: 14.5px; margin-top: 8px; margin-bottom: 18px;">
+        Continue
+      </button>
+    </form>
+
+    <div style="border-top: 1px solid var(--border-hairline); padding-top: 16px; text-align: center; font-size: 13px; color: var(--text-secondary);">
+      Already have an account? 
+      <a href="{% url 'login' %}" style="color: var(--apple-blue); font-weight: 500; text-decoration: none;">
+        Sign In
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
