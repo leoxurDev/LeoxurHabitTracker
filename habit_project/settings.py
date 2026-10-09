@@ -129,6 +129,4 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
-STATICFILES_DIRS = [
-    BASE_DIR / 'tracker' / 'static',
-]
+STATICFILES_DIRS = []

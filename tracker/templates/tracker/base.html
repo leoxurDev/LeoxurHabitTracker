@@ -107,14 +107,12 @@
             <div class="popover-lang-badge"
               style="padding: 4px 12px; margin: 0 4px 4px 4px; border-radius: 8px; background: var(--bg-subtle); display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
               <span style="color: var(--text-secondary);">Language</span>
-              <span style="font-weight: 600; color: var(--apple-blue);">{{
-                user.profile.get_language_display_text|default:"English" }}</span>
+              <span style="font-weight: 600; color: var(--apple-blue);">{{ user.profile.get_language_display_text|default:"English" }}</span>
             </div>
             <div class="popover-lang-badge"
               style="padding: 4px 12px; margin: 0 4px 6px 4px; border-radius: 8px; background: var(--bg-subtle); display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
               <span style="color: var(--text-secondary);">Timezone</span>
-              <span style="font-weight: 600; color: var(--apple-green);">{{ user.profile.timezone|default:"UTC"
-                }}</span>
+              <span style="font-weight: 600; color: var(--apple-green);">{{ user.profile.timezone|default:"UTC" }}</span>
             </div>
             <div class="popover-menu-list">
               <a href="{% url 'dashboard' %}" class="popover-menu-item">
