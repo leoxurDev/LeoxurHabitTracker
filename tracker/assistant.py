@@ -1,6 +1,11 @@
+import os
 import re
 import math
+import json
+import urllib.request
+import urllib.error
 import datetime
+from django.conf import settings
 from django.utils import timezone
 from django.db.models import Q
 from .models import HourlyLog, Reminder, Category, UserProfile, SMTPSettings
@@ -10,13 +15,20 @@ from .quotes import get_quote_for_goal
 class HabitIntelligence:
     """
     Habit Intelligence — The Autonomous Time & Habit Orchestrator.
-    Capable of controlling, querying, scheduling, logging, styling,
-    and analyzing the entire Habit Tracker application end-to-end.
+    Powered by Google Gemini AI (when API key is provided) and an ultra-robust
+    local deterministic semantic brain that executes every action natively.
     """
 
     def __init__(self, user):
         self.user = user
         self.profile = getattr(user, 'profile', None)
+
+    def get_gemini_api_key(self):
+        """Retrieve Gemini API key from environment, settings, or user profile."""
+        key = os.getenv('GEMINI_API_KEY') or getattr(settings, 'GEMINI_API_KEY', '')
+        if not key and self.profile:
+            key = getattr(self.profile, 'gemini_api_key', '')
+        return (key or '').strip()
 
     def process_message(self, user_text):
         """
@@ -28,6 +40,30 @@ class HabitIntelligence:
         }
         """
         text = user_text.strip().lower()
+
+        # 0. Check for Gemini API Key configuration via chat
+        gemini_set_match = re.search(r'(?:set|save|update)\s+gemini\s+(?:api\s+)?key\s+(?:to\s+)?([A-Za-z0-9_-]{20,})', user_text, re.I)
+        if gemini_set_match:
+            new_key = gemini_set_match.group(1).strip()
+            if self.profile:
+                self.profile.gemini_api_key = new_key
+                self.profile.save(update_fields=['gemini_api_key'])
+                return {
+                    'reply': "🤖 **Google Gemini API Key Configured!**\n\nHabit Intelligence is now powered directly by Google Gemini 1.5 Flash. You have full multimodal and natural reasoning enabled across your habit tracker.",
+                    'action_type': 'general',
+                    'payload': {'gemini_connected': True}
+                }
+
+        # 0.1 Try calling Google Gemini Cloud AI if API key is configured
+        gemini_key = self.get_gemini_api_key()
+        if gemini_key:
+            try:
+                gemini_result = self._call_gemini_api(user_text, gemini_key)
+                if gemini_result and isinstance(gemini_result, dict) and gemini_result.get('reply'):
+                    return gemini_result
+            except Exception as e:
+                # If Gemini API fails (network or quota), seamlessly fall back to local intelligence
+                pass
 
         # 1. Action: View Mode Toggle (Grid vs List)
         if any(p in text for p in ['grid view', 'switch to grid', 'show grid', 'matrix view', 'open grid']):
@@ -157,22 +193,14 @@ class HabitIntelligence:
                     'payload': {'primary_goal': new_goal}
                 }
 
-        # 7. Action: Clear / Delete Hourly Log
-        delete_match = re.search(r'(?:clear|delete|remove)\s+(?:hour\s+|activity\s+(?:at\s+)?)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?|\d{1,2})', text)
-        if delete_match and ('remind' not in text):
-            hour_val = self._parse_hour_string(delete_match.group(1))
-            if hour_val is not None:
-                today = timezone.localdate()
-                deleted_count, _ = HourlyLog.objects.filter(user=self.user, date=today, hour=hour_val).delete()
-                period = "AM" if hour_val < 12 else "PM"
-                disp_h = 12 if hour_val % 12 == 0 else hour_val % 12
-                return {
-                    'reply': f"🗑️ **Cleared Hour {disp_h:02d}:00 {period} ({hour_val:02d}:00)**\n\nRemoved {deleted_count} logged activity entry(ies). The box is now reset to Unscheduled.",
-                    'action_type': 'delete_activity',
-                    'payload': {'hour': hour_val}
-                }
+        # 7. PRIORITY: Action: Clear / Delete / Remove Hourly Log
+        # If user expresses ANY removal intent, NEVER allow it to fall through to log activity!
+        del_keywords = ['remove', 'delete', 'clear', 'erase', 'cancel', 'wipe', 'drop', 'trash']
+        is_delete_intent = any(re.search(rf'\b{w}\b', text) for w in del_keywords)
+        if is_delete_intent:
+            return self._execute_delete_command(user_text)
 
-        # 8. Action: Natural Language Log Activity
+        # 8. Action: Natural Language Log Activity (ONLY if NOT a delete intent!)
         # Examples:
         # "log 2 hours of deep work at 10 am"
         # "add workout for 45 minutes at 7:00"
@@ -180,7 +208,7 @@ class HabitIntelligence:
         # "track 30 minutes reading at 9 pm"
         # "add lunch at 12:00 for 1 hour"
         # "log 90 seconds plank at 18:00"
-        if re.search(r'\b(?:log|add|track|record)\b', text) and ('remind' not in text and 'template' not in text):
+        if not is_delete_intent and re.search(r'\b(?:log|add|track|record|spent|did)\b', text) and ('remind' not in text and 'template' not in text):
             log_result = self._execute_log_command(user_text)
             if log_result:
                 return log_result
@@ -282,6 +310,265 @@ class HabitIntelligence:
 
         # 18. Default Intelligent Response with Action Shortcuts
         return self._generate_default_response()
+
+    def _execute_delete_command(self, raw_text):
+        """Intelligently delete an activity or clear an hour slot."""
+        text = raw_text.lower().strip()
+        today = timezone.localdate()
+
+        # Handle reminder deletion if 'remind' is present
+        if 'remind' in text:
+            time_match = re.search(r'(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)', text)
+            if time_match:
+                parsed_h = self._parse_hour_string(time_match.group(1))
+                if parsed_h is not None:
+                    rems = Reminder.objects.filter(user=self.user, time__hour=parsed_h)
+                    c = rems.count()
+                    rems.delete()
+                    return {
+                        'reply': f"🗑️ **Reminder Removed.** Cancelled {c} reminder(s) around {time_match.group(1)}.",
+                        'action_type': 'set_reminder',
+                        'payload': {}
+                    }
+
+        # 1. Extract hour
+        hour = self._extract_hour(text)
+
+        # 2. Extract title keywords
+        cleaned = re.sub(r'\b(?:please|remove|delete|clear|erase|cancel|wipe|drop|trash|from|at|the|log|activity|entry|session|hour|slot)\b', ' ', text, flags=re.I)
+        cleaned = re.sub(r'\b\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b', ' ', cleaned, flags=re.I)
+        cleaned = re.sub(r'\b\d+(?:\.\d+)?\s*(?:hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)\b', ' ', cleaned, flags=re.I)
+        title_keywords = [w.strip() for w in cleaned.split() if len(w.strip()) >= 3]
+
+        user_today_logs = HourlyLog.objects.filter(user=self.user, date=today)
+
+        # Case 1: Specific hour identified
+        if hour is not None:
+            hour_logs = user_today_logs.filter(hour=hour)
+            period = "AM" if hour < 12 else "PM"
+            disp_h = 12 if hour % 12 == 0 else hour % 12
+            time_str = f"{disp_h:02d}:00 {period}"
+
+            if not hour_logs.exists():
+                return {
+                    'reply': f"ℹ️ **Hour {time_str} ({hour:02d}:00) is already clear.**\n\nThere are no active activities logged in this slot.",
+                    'action_type': 'delete_activity',
+                    'payload': {'hour': hour}
+                }
+
+            # If user provided title keywords (e.g. '1 hour deep work' -> keywords ['deep', 'work'])
+            matched_logs = []
+            if title_keywords:
+                for l in hour_logs:
+                    l_lower = l.title.lower()
+                    if any(kw in l_lower for kw in title_keywords):
+                        matched_logs.append(l)
+
+            if matched_logs:
+                del_titles = ", ".join([f'"{l.title}"' for l in matched_logs])
+                HourlyLog.objects.filter(id__in=[l.id for l in matched_logs]).delete()
+                return {
+                    'reply': f"🗑️ **Removed {del_titles} from {time_str}.**\n\nThe schedule box has been updated.",
+                    'action_type': 'delete_activity',
+                    'payload': {'hour': hour}
+                }
+            else:
+                # If no specific keyword matched or none given, clear all logs in this hour
+                count, _ = hour_logs.delete()
+                return {
+                    'reply': f"🗑️ **Cleared Hour {time_str} ({hour:02d}:00).**\n\nRemoved {count} logged activity entry(ies). The box is now reset to Unscheduled.",
+                    'action_type': 'delete_activity',
+                    'payload': {'hour': hour}
+                }
+
+        # Case 2: No hour identified, but title keywords given (e.g. "remove deep work")
+        if title_keywords:
+            matched_logs = []
+            for l in user_today_logs:
+                l_lower = l.title.lower()
+                if any(kw in l_lower for kw in title_keywords):
+                    matched_logs.append(l)
+
+            if matched_logs:
+                del_titles = ", ".join([f'"{l.title}"' for l in matched_logs])
+                del_hours = list(set([l.hour for l in matched_logs]))
+                HourlyLog.objects.filter(id__in=[l.id for l in matched_logs]).delete()
+                return {
+                    'reply': f"🗑️ **Removed {del_titles}.**\n\nReset {len(del_hours)} hour slot(s) on your dashboard.",
+                    'action_type': 'delete_activity',
+                    'payload': {'hour': del_hours[0] if del_hours else 0}
+                }
+
+        # Case 3: Clear all logs today
+        if 'all' in text and any(w in text for w in ['logs', 'activities', 'today']):
+            count, _ = user_today_logs.delete()
+            return {
+                'reply': f"🗑️ **Cleared All Today's Logs.**\n\nRemoved {count} activities across all 24 hours.",
+                'action_type': 'delete_activity',
+                'payload': {'hour': 0}
+            }
+
+        # Case 4: Ambiguous
+        return {
+            'reply': "❓ **Which log would you like to remove?**\n\nYou can say:\n• *\"Remove the log at 8 AM\"*\n• *\"Delete Deep Work at 10:00\"*\n• *\"Clear hour 14\"*",
+            'action_type': 'general',
+            'payload': {}
+        }
+
+    def _call_gemini_api(self, user_text, api_key):
+        """Invoke Google Gemini 1.5 Flash API with rich contextual prompt."""
+        today = timezone.localdate()
+        now_h = timezone.localtime().hour
+        logs = HourlyLog.objects.filter(user=self.user, date=today).order_by('hour')
+        log_summary = [f"Hour {l.hour:02d}:00: '{l.title}' ({l.duration_display()}, {l.category.name if l.category else 'General'})" for l in logs]
+        schedule_context = "\n".join(log_summary) if log_summary else "No activities logged today yet."
+
+        categories = [c.name for c in Category.objects.filter(Q(user=None) | Q(user=self.user))]
+
+        system_prompt = f"""You are Habit Intelligence, the autonomous AI companion for an Apple iOS-style Habit & Time Tracker.
+Current time: {timezone.localtime().strftime('%I:%M %p')}, Hour: {now_h}.
+Today's date: {today.strftime('%Y-%m-%d')}.
+User Profile: Goal={self.profile.primary_goal if self.profile else 'focus'}, Target Active Hours={self.profile.daily_target_hours if self.profile else 8.0}h.
+Categories available: {', '.join(categories)}
+
+CURRENT LOGGED ACTIVITIES TODAY:
+{schedule_context}
+
+Analyze the user's intent deeply. Return a JSON object with:
+{{
+  "thought": "Reasoning about user intent",
+  "reply": "Concise Apple-style markdown response with emojis and formatted details",
+  "action_type": "log_activity | delete_activity | switch_view | change_theme | control_timer | filter_schedule | update_profile | set_reminder | navigate | general | guide",
+  "payload": {{ ... }}
+}}
+
+IMPORTANT INTENT INSTRUCTIONS:
+- If user wants to delete, remove, clear, or erase an activity or hour:
+  CRITICAL: Never log an activity! Set action_type="delete_activity".
+  payload: {{"hour": <0-23 or null>, "target_title": "<activity title or null>"}}
+- If user wants to log, add, track, or record an activity:
+  action_type="log_activity".
+  payload: {{"hour": <0-23>, "title": "<clean title>", "duration_seconds": <int>, "unit_type": "hours|minutes|seconds", "category_name": "<matching category>"}}
+- If user wants to switch between grid and list views:
+  action_type="switch_view", payload: {{"view": "grid" or "list"}}
+- If user wants dark or light mode:
+  action_type="change_theme", payload: {{"theme": "dark" or "light"}}
+- If user wants stopwatch/timer:
+  action_type="control_timer", payload: {{"action": "start" or "stop" or "reset"}}
+- If user wants to filter:
+  action_type="filter_schedule", payload: {{"filter": "all" or "productive" or "sleep" or "logged"}}
+- If user wants to update daily target or primary goal:
+  action_type="update_profile", payload: {{"target_hours": <float> or "primary_goal": "<str>"}}
+- If user wants a reminder:
+  action_type="set_reminder", payload: {{"time": "HH:MM", "title": "<task>"}}
+- If user asks questions about how features work:
+  action_type="guide", payload: {{}}
+
+Return ONLY the raw JSON object.
+"""
+
+        payload_data = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": user_text}]
+                }
+            ],
+            "system_instruction": {
+                "parts": [{"text": system_prompt}]
+            },
+            "generationConfig": {
+                "temperature": 0.1,
+                "response_mime_type": "application/json"
+            }
+        }
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload_data).encode('utf-8'),
+            headers={'Content-Type': 'application/json'},
+            method='POST'
+        )
+
+        with urllib.request.urlopen(req, timeout=7) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            text_content = result['candidates'][0]['content']['parts'][0]['text']
+            data = json.loads(text_content)
+            return self._apply_gemini_action(data)
+
+    def _apply_gemini_action(self, data):
+        """Execute action returned from Gemini API."""
+        action_type = data.get('action_type', 'general')
+        payload = data.get('payload', {})
+        reply = data.get('reply', '')
+        today = timezone.localdate()
+
+        if action_type == 'delete_activity':
+            hour = payload.get('hour')
+            target_title = payload.get('target_title')
+            if hour is not None:
+                qs = HourlyLog.objects.filter(user=self.user, date=today, hour=hour)
+                if target_title:
+                    qs = qs.filter(title__icontains=target_title)
+                qs.delete()
+            elif target_title:
+                HourlyLog.objects.filter(user=self.user, date=today, title__icontains=target_title).delete()
+
+        elif action_type == 'log_activity':
+            hour = payload.get('hour', timezone.localtime().hour)
+            title = payload.get('title', 'Activity')
+            duration_seconds = payload.get('duration_seconds', 3600)
+            unit_type = payload.get('unit_type', 'hours')
+            category_name = payload.get('category_name', '')
+            cat = None
+            if category_name:
+                cat = Category.objects.filter(Q(user=None) | Q(user=self.user)).filter(name__icontains=category_name).first()
+            if not cat:
+                cat = Category.objects.filter(Q(user=None) | Q(user=self.user)).first()
+
+            log = HourlyLog.objects.create(
+                user=self.user,
+                date=today,
+                hour=hour,
+                title=title,
+                category=cat,
+                duration_seconds=duration_seconds,
+                unit_type=unit_type,
+                energy_level=4,
+                completed=True
+            )
+            payload['id'] = log.id
+            payload['category_color'] = cat.color if cat else '#0071E3'
+
+        elif action_type == 'change_theme':
+            if self.profile and 'theme' in payload:
+                self.profile.theme = payload['theme']
+                self.profile.save(update_fields=['theme'])
+
+        elif action_type == 'update_profile':
+            if self.profile:
+                if 'target_hours' in payload:
+                    try:
+                        self.profile.daily_target_hours = float(payload['target_hours'])
+                    except (ValueError, TypeError):
+                        pass
+                if 'primary_goal' in payload:
+                    self.profile.primary_goal = payload['primary_goal']
+                self.profile.save()
+
+        elif action_type == 'set_reminder':
+            time_str = payload.get('time', '20:00')
+            task_title = payload.get('title', 'Habit Check-in')
+            rem = self._create_reminder_from_text(time_str, task_title)
+            if rem:
+                payload['id'] = rem.id
+
+        return {
+            'reply': reply,
+            'action_type': action_type,
+            'payload': payload
+        }
 
     def _execute_log_command(self, raw_text):
         """Parse natural language log commands and create the HourlyLog directly."""

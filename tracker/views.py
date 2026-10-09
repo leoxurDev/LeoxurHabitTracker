@@ -1074,6 +1074,8 @@ def settings_view(request):
             profile.bio_motto = request.POST.get('bio_motto', profile.bio_motto).strip()
             profile.theme = request.POST.get('theme', profile.theme)
             profile.avatar_color = request.POST.get('avatar_color', profile.avatar_color)
+            if 'gemini_api_key' in request.POST:
+                profile.gemini_api_key = request.POST.get('gemini_api_key', '').strip()
             profile.notifications_enabled = 'notifications_enabled' in request.POST
             profile.save()
 

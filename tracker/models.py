@@ -32,6 +32,7 @@ class UserProfile(models.Model):
     bio_motto = models.CharField(max_length=255, blank=True, default="Making every single hour intentional.")
     theme = models.CharField(max_length=20, default='system', choices=[('light', 'Light'), ('dark', 'Dark'), ('system', 'Auto/System')])
     avatar_color = models.CharField(max_length=20, default='#007AFF')
+    gemini_api_key = models.CharField(max_length=255, blank=True, default='')
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
