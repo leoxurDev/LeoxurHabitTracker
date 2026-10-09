@@ -721,8 +721,8 @@ class AIAssistant {
         this.appendBubble(data.reply, 'assistant');
         iOSAudio.playChime('success');
 
-        if (data.action_type === 'set_reminder') {
-          showiOSToast('Reminder scheduled', '✓');
+        if (data.action_type) {
+          this.executeAction(data.action_type, data.payload || {}, data.reply);
         }
       } else {
         this.appendBubble("Sorry, unable to process right now.", 'assistant');
@@ -731,6 +731,106 @@ class AIAssistant {
       typingBubble.remove();
       this.appendBubble("Network issue. Please retry.", 'assistant');
       console.error(e);
+    }
+  }
+
+  executeAction(actionType, payload = {}, reply = '') {
+    switch (actionType) {
+      case 'switch_view':
+        if (payload.view && typeof switchScheduleView === 'function') {
+          switchScheduleView(payload.view);
+          showiOSToast(`Switched to ${payload.view.toUpperCase()} view`, '🔲');
+        } else if (payload.view) {
+          localStorage.setItem('habit_schedule_view', payload.view);
+          const gridBtn = document.getElementById('viewGridBtn');
+          const listBtn = document.getElementById('viewListBtn');
+          if (payload.view === 'grid' && gridBtn) gridBtn.click();
+          else if (payload.view === 'list' && listBtn) listBtn.click();
+        }
+        break;
+
+      case 'change_theme':
+        if (payload.theme && typeof applyTheme === 'function') {
+          applyTheme(payload.theme);
+          localStorage.setItem('ios_habit_theme', payload.theme);
+          showiOSToast(`Switched to ${payload.theme} mode`, '🌓');
+        }
+        break;
+
+      case 'control_timer':
+        if (payload.action) {
+          const timerBtn = document.getElementById('timerToggleBtn');
+          const resetBtn = document.getElementById('timerResetBtn');
+          if (payload.action === 'start') {
+            if (timerBtn && timerBtn.innerText !== 'Pause') timerBtn.click();
+            showiOSToast('Stopwatch started', '⏱️');
+          } else if (payload.action === 'stop') {
+            if (timerBtn && timerBtn.innerText === 'Pause') timerBtn.click();
+            showiOSToast('Stopwatch paused', '⏸️');
+          } else if (payload.action === 'reset') {
+            if (resetBtn) resetBtn.click();
+            showiOSToast('Stopwatch reset', '↺');
+          }
+        }
+        break;
+
+      case 'filter_schedule':
+        if (payload.filter) {
+          const pill = document.querySelector(`.timeline-legend-badges .cat-pill[onclick*="'${payload.filter}'"]`);
+          if (pill) {
+            pill.click();
+          } else if (typeof filterTimeline === 'function') {
+            filterTimeline(payload.filter, pill || document.body);
+          }
+        }
+        break;
+
+      case 'log_activity':
+        try {
+          sessionStorage.setItem('apple_post_log_event', JSON.stringify({
+            hour: payload.hour,
+            span_hours: payload.span_hours || 1,
+            title: payload.title || 'Activity',
+            category_color: payload.category_color || '#0071E3'
+          }));
+        } catch (e) {}
+        showiOSToast(`${payload.title || 'Activity'} logged!`, '✓');
+        setTimeout(() => {
+          window.location.reload();
+        }, 900);
+        break;
+
+      case 'delete_activity':
+        try {
+          sessionStorage.setItem('apple_post_delete_event', JSON.stringify({ hour: payload.hour }));
+        } catch (e) {}
+        showiOSToast('Hour cleared', '✓');
+        setTimeout(() => {
+          window.location.reload();
+        }, 900);
+        break;
+
+      case 'update_profile':
+        showiOSToast('Profile & Goal updated', '🎯');
+        setTimeout(() => {
+          window.location.reload();
+        }, 900);
+        break;
+
+      case 'navigate':
+        if (payload.url) {
+          setTimeout(() => {
+            window.location.href = payload.url;
+          }, 650);
+        }
+        break;
+
+      case 'set_reminder':
+        showiOSToast('Reminder scheduled', '⏰');
+        break;
+
+      default:
+        break;
     }
   }
 }

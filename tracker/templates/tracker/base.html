@@ -49,8 +49,8 @@
       </nav>
 
       <div class="nav-actions">
-        <!-- Apple Intelligence Trigger -->
-        <button id="topBarAiBtn" class="ios-toolbar-btn apple-ai-toolbar-btn" type="button" title="Apple Intelligence Assistant" aria-label="Habit Assistant">
+        <!-- Habit Intelligence Trigger -->
+        <button id="topBarAiBtn" class="ios-toolbar-btn apple-ai-toolbar-btn" type="button" title="Habit Intelligence" aria-label="Habit Intelligence">
           {% sf_icon "apple_intelligence" "sf-icon-sm" %}
         </button>
 
@@ -152,7 +152,7 @@
     </a>
     <button id="tabAssistantBtn" type="button" class="tab-item" style="background:none; border:none; cursor:pointer;">
       <span class="tab-icon">{% sf_icon "apple_intelligence" %}</span>
-      <span>Assistant</span>
+      <span>Intelligence</span>
     </button>
     <a href="{% url 'settings' %}" class="tab-item {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
       <span class="tab-icon">{% sf_icon "gear" %}</span>
@@ -160,18 +160,18 @@
     </a>
   </div>
 
-  <!-- Floating Apple Intelligence Dock Widget -->
+  <!-- Floating Habit Intelligence Dock Widget -->
   <div id="aiFloatingDock" class="siri-float-dock">
-    <button id="siriFloatBtn" class="siri-float-btn" type="button" title="Apple Intelligence Assistant" aria-label="Habit Assistant">
+    <button id="siriFloatBtn" class="siri-float-btn" type="button" title="Habit Intelligence" aria-label="Habit Intelligence">
       <span class="siri-float-halo" aria-hidden="true"></span>
       {% sf_icon "apple_intelligence" "sf-icon-lg" %}
     </button>
-    <button id="aiDockHideBtn" class="siri-dock-hide-btn" type="button" title="Hide Assistant Floating Button" aria-label="Hide Floating Button">
+    <button id="aiDockHideBtn" class="siri-dock-hide-btn" type="button" title="Hide Habit Intelligence Floating Button" aria-label="Hide Floating Button">
       {% sf_icon "xmark" "sf-icon-xs" %}
     </button>
   </div>
 
-  <!-- Assistant Panel Drawer -->
+  <!-- Habit Intelligence Drawer -->
   <div id="assistantPanel" class="assistant-panel" role="dialog" aria-labelledby="assistantTitle">
     <div class="assistant-header">
       <div class="assistant-header-title" id="assistantTitle">
@@ -179,8 +179,8 @@
           {% sf_icon "apple_intelligence" "sf-icon-sm" %}
         </div>
         <div>
-          <span>Apple Intelligence</span>
-          <div style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">Habit Routine Guidance</div>
+          <span>Habit Intelligence</span>
+          <div style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">Autonomous Time & Habit Orchestrator</div>
         </div>
       </div>
       <button id="assistantCloseBtn" class="ios-icon-btn" style="width: 28px; height: 28px;">
@@ -190,7 +190,7 @@
 
     <div class="assistant-messages" id="assistantMessages">
       <div class="msg-bubble msg-assistant">
-        Hello {{ user.first_name|default:user.username }}. I can help analyze your hours, schedule reminders, or guide you on tracking with precision.
+        Hello {{ user.first_name|default:user.username }}. I am **Habit Intelligence** — your autonomous habit and time companion. You can ask me to log activities, clear hours, switch views, set targets, or control anything in this app for you. What would you like to do?
       </div>
       {% for msg in chat_history %}
       <div class="msg-bubble msg-{{ msg.sender }}">
@@ -199,17 +199,18 @@
       {% endfor %}
     </div>
 
-    <!-- Quick Prompts -->
+    <!-- Quick Prompts / Commands -->
     <div class="assistant-suggestions">
-      <div class="suggestion-chip" data-prompt="How to use this app?">Walkthrough</div>
+      <div class="suggestion-chip" data-prompt="Log 2 hours of Deep Work at 10 AM">Log 2h Work (10 AM)</div>
+      <div class="suggestion-chip" data-prompt="Switch to Grid View">Grid View</div>
       <div class="suggestion-chip" data-prompt="Show my status">Daily Status</div>
-      <div class="suggestion-chip" data-prompt="Give me motivation">Focus Quote</div>
       <div class="suggestion-chip" data-prompt="Remind me at 9:00 PM to log my day">Remind 9 PM</div>
-      <div class="suggestion-chip" data-prompt="How to track in seconds and minutes?">Precision Units</div>
+      <div class="suggestion-chip" data-prompt="Start stopwatch">Start Timer</div>
+      <div class="suggestion-chip" data-prompt="Master walkthrough">Walkthrough</div>
     </div>
 
     <div class="assistant-input-box">
-      <input type="text" id="assistantInput" class="assistant-input" placeholder="Ask Assistant or set reminder..." autocomplete="off">
+      <input type="text" id="assistantInput" class="assistant-input" placeholder="Ask Habit Intelligence to log, schedule, switch view..." autocomplete="off">
       <button id="assistantSendBtn" class="send-btn" aria-label="Send Message">↑</button>
     </div>
   </div>
