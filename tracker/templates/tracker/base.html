@@ -227,6 +227,22 @@
 
       <form id="activityLogForm" onsubmit="event.preventDefault(); saveActivityLog();">
         <input type="hidden" id="modalHourInput" value="0">
+        <input type="hidden" id="modalLogIdInput" value="">
+
+        <!-- Multi-Activity Navigation Tabs for this Hour -->
+        <div id="modalActivityTabsContainer" style="display: none; margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="ios-label" style="margin-bottom: 0;">Activities in this Slot</label>
+            <span id="modalActivitiesCounter" style="font-size: 11px; color: var(--apple-blue); font-weight: 500;"></span>
+          </div>
+          <div id="modalActivityTabs" class="modal-activity-segmented-tabs"></div>
+        </div>
+
+        <!-- Spanned Activity Notice Banner -->
+        <div id="modalSpannedNotice" style="display: none; background: rgba(0, 113, 227, 0.08); border: 1px solid rgba(0, 113, 227, 0.2); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 14px; font-size: 12px; color: var(--apple-blue); align-items: center; gap: 8px;">
+          {% sf_icon "clock" "sf-icon-xs" %}
+          <span id="modalSpannedNoticeText">Ongoing activity spanning across hours</span>
+        </div>
 
         <!-- Activity Name -->
         <div class="ios-form-group">
@@ -283,11 +299,11 @@
 
         <!-- Action Buttons -->
         <div style="display: flex; gap: 8px; margin-top: 22px;">
-          <button type="submit" class="ios-btn-primary" style="flex: 2; height: 42px;">
+          <button type="submit" id="modalSubmitBtn" class="ios-btn-primary" style="flex: 2; height: 42px;">
             Save
           </button>
           <button type="button" id="modalDeleteBtn" onclick="deleteActivityLog()" class="ios-btn-secondary" style="flex: 1; height: 42px; color: var(--apple-red); display: none;">
-            Clear
+            Delete
           </button>
         </div>
       </form>

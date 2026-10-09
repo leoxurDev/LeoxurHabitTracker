@@ -178,9 +178,9 @@ def process_bulk_upload_csv(user, file_obj):
                     user=user,
                     date=log_date,
                     hour=hour,
+                    title=title,
                     defaults={
                         'category': category,
-                        'title': title,
                         'duration_seconds': duration_seconds,
                         'unit_type': unit_type,
                         'energy_level': energy,

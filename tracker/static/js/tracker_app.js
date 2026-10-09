@@ -250,21 +250,55 @@ class HabitTimer {
   }
 }
 
-// --- Activity Modal Logic ---
+// --- Activity Modal & Multi-Activity Logic ---
 let activeHour = 0;
 let selectedUnit = 'hours';
 let selectedCategory = null;
 let selectedEnergy = 4;
+let currentSlotActivities = [];
 
-function openLogModal(hour, initialData = {}) {
+function parseSlotActivities(element) {
+  if (!element) return [];
+  try {
+    const raw = element.getAttribute('data-activities') || element.dataset.activities;
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.warn('Failed to parse slot activities', e);
+    return [];
+  }
+}
+
+function handleHourSlotClick(hour, element, event) {
+  const activities = parseSlotActivities(element);
+  if (activities.length === 0) {
+    openLogModal(hour, { is_new: true }, []);
+  } else {
+    // Open with first activity selected, plus tabs for others & new
+    openLogModal(hour, activities[0], activities);
+  }
+}
+
+function handleActivityItemClick(hour, actId, element) {
+  const activities = parseSlotActivities(element);
+  const target = activities.find(a => a.id === actId);
+  openLogModal(hour, target || { is_new: true }, activities);
+}
+
+function handleAddAnotherActivity(hour, element) {
+  const activities = parseSlotActivities(element);
+  openLogModal(hour, { is_new: true }, activities);
+}
+
+function openLogModal(hour, initialData = {}, allSlotActivities = []) {
   activeHour = hour;
+  currentSlotActivities = allSlotActivities || [];
+
   const modal = document.getElementById('activityModal');
   const modalHourTitle = document.getElementById('modalHourTitle');
   const modalHourInput = document.getElementById('modalHourInput');
-  const titleInput = document.getElementById('modalTitleInput');
-  const durationInput = document.getElementById('modalDurationInput');
-  const notesInput = document.getElementById('modalNotesInput');
-  const deleteBtn = document.getElementById('modalDeleteBtn');
+  const tabsContainer = document.getElementById('modalActivityTabsContainer');
+  const tabsWrapper = document.getElementById('modalActivityTabs');
+  const counterSpan = document.getElementById('modalActivitiesCounter');
 
   const period = hour < 12 ? 'AM' : 'PM';
   const displayH = hour % 12 === 0 ? 12 : hour % 12;
@@ -273,14 +307,85 @@ function openLogModal(hour, initialData = {}) {
   if (modalHourTitle) modalHourTitle.innerText = `Hour ${formattedHour}`;
   if (modalHourInput) modalHourInput.value = hour;
 
-  titleInput.value = initialData.title || '';
-  notesInput.value = initialData.notes || '';
-  durationInput.value = initialData.duration_val || 1;
+  // Render Activity Tabs if this slot has existing activities
+  if (currentSlotActivities.length > 0 && tabsContainer && tabsWrapper) {
+    tabsContainer.style.display = 'block';
+    if (counterSpan) {
+      counterSpan.innerText = `${currentSlotActivities.length} active`;
+    }
 
-  setModalUnit(initialData.unit_type || 'hours');
-  setModalEnergy(initialData.energy || 4);
+    tabsWrapper.innerHTML = '';
 
-  selectedCategory = initialData.category_id || null;
+    // "+ Add Activity" tab
+    const addTab = document.createElement('button');
+    addTab.type = 'button';
+    addTab.className = `modal-act-tab tab-add-new ${initialData.is_new ? 'active' : ''}`;
+    addTab.innerHTML = '+ Add Activity';
+    addTab.onclick = () => {
+      loadModalActivityData({ is_new: true });
+      updateTabsActive(addTab);
+    };
+    tabsWrapper.appendChild(addTab);
+
+    // Existing activity tabs
+    currentSlotActivities.forEach(act => {
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      const isThisActive = !initialData.is_new && initialData.id === act.id;
+      tab.className = `modal-act-tab ${isThisActive ? 'active' : ''}`;
+      const icon = act.category_icon || '💼';
+      const spanTag = act.is_spanning ? ' (Spanned)' : '';
+      tab.innerHTML = `<span>${icon}</span> <span>${act.title}${spanTag}</span>`;
+      tab.onclick = () => {
+        loadModalActivityData(act);
+        updateTabsActive(tab);
+      };
+      tabsWrapper.appendChild(tab);
+    });
+  } else if (tabsContainer) {
+    tabsContainer.style.display = 'none';
+  }
+
+  loadModalActivityData(initialData);
+
+  if (modal) modal.classList.add('open');
+}
+
+function updateTabsActive(activeEl) {
+  document.querySelectorAll('.modal-act-tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  if (activeEl) activeEl.classList.add('active');
+}
+
+function loadModalActivityData(data = {}) {
+  const modalLogIdInput = document.getElementById('modalLogIdInput');
+  const titleInput = document.getElementById('modalTitleInput');
+  const durationInput = document.getElementById('modalDurationInput');
+  const notesInput = document.getElementById('modalNotesInput');
+  const deleteBtn = document.getElementById('modalDeleteBtn');
+  const submitBtn = document.getElementById('modalSubmitBtn');
+  const spannedNotice = document.getElementById('modalSpannedNotice');
+  const spannedNoticeText = document.getElementById('modalSpannedNoticeText');
+
+  const isNew = Boolean(data.is_new);
+  const logId = isNew ? '' : (data.id || '');
+
+  if (modalLogIdInput) modalLogIdInput.value = logId;
+  if (titleInput) titleInput.value = isNew ? '' : (data.title || '');
+  if (notesInput) notesInput.value = isNew ? '' : (data.notes || '');
+
+  // Duration
+  let durVal = 1;
+  if (!isNew && data.duration_val) {
+    durVal = parseFloat(data.duration_val) || 1;
+  }
+  if (durationInput) durationInput.value = durVal;
+
+  setModalUnit(isNew ? 'hours' : (data.unit_type || 'hours'));
+  setModalEnergy(isNew ? 4 : (data.energy || 4));
+
+  selectedCategory = isNew ? null : (data.category_id || null);
   document.querySelectorAll('.category-tile').forEach(tile => {
     if (tile.dataset.catId == selectedCategory) {
       tile.classList.add('active');
@@ -289,11 +394,30 @@ function openLogModal(hour, initialData = {}) {
     }
   });
 
-  if (deleteBtn) {
-    deleteBtn.style.display = initialData.title ? 'inline-flex' : 'none';
+  // Spanned Banner
+  if (spannedNotice) {
+    if (!isNew && data.is_spanning) {
+      spannedNotice.style.display = 'flex';
+      if (spannedNoticeText) {
+        spannedNoticeText.innerText = `Multi-hour activity spanning from ${String(data.start_hour).padStart(2, '0')}:00 (${data.time_range || ''})`;
+      }
+    } else {
+      spannedNotice.style.display = 'none';
+    }
   }
 
-  modal.classList.add('open');
+  // Buttons
+  if (submitBtn) {
+    submitBtn.innerText = isNew ? 'Add Activity' : (logId ? 'Update Activity' : 'Save');
+  }
+  if (deleteBtn) {
+    if (!isNew && logId) {
+      deleteBtn.style.display = 'inline-flex';
+      deleteBtn.innerText = 'Delete';
+    } else {
+      deleteBtn.style.display = 'none';
+    }
+  }
 }
 
 function closeLogModal() {
@@ -333,8 +457,10 @@ async function saveActivityLog() {
   const durationVal = parseFloat(document.getElementById('modalDurationInput').value) || 1;
   const notes = document.getElementById('modalNotesInput').value.trim();
   const dateStr = document.getElementById('currentDateStr') ? document.getElementById('currentDateStr').value : '';
+  const logIdVal = document.getElementById('modalLogIdInput') ? document.getElementById('modalLogIdInput').value : '';
 
   const payload = {
+    log_id: logIdVal ? parseInt(logIdVal) : null,
     date: dateStr,
     hour: activeHour,
     title: title,
@@ -357,9 +483,40 @@ async function saveActivityLog() {
     const data = await res.json();
     if (data.status === 'success') {
       iOSAudio.playChime('success');
-      showiOSToast('Saved', '✓');
-      closeLogModal();
-      setTimeout(() => { window.location.reload(); }, 250);
+
+      // 1. Calculate duration span for animated cascade
+      let spanHours = 1;
+      if (data.log && data.log.duration_seconds) {
+        spanHours = Math.max(1, Math.ceil(data.log.duration_seconds / 3600.0));
+      }
+
+      // 2. Persist post-log animation event in sessionStorage
+      try {
+        sessionStorage.setItem('apple_post_log_event', JSON.stringify({
+          hour: activeHour,
+          span_hours: spanHours,
+          title: data.log ? data.log.title : title,
+          category_color: (data.log && data.log.category_color) ? data.log.category_color : '#0071E3'
+        }));
+      } catch (e) {}
+
+      // 3. Apple tactile button feedback
+      const submitBtn = document.getElementById('modalSubmitBtn');
+      if (submitBtn) {
+        submitBtn.innerHTML = '✓ Saved';
+        submitBtn.style.background = 'var(--apple-green)';
+        submitBtn.style.transform = 'scale(0.96)';
+      }
+
+      // 4. Modal smooth spring dismiss
+      const modal = document.getElementById('activityModal');
+      if (modal) {
+        modal.classList.add('dismissing');
+      }
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 260);
     }
   } catch (err) {
     console.error('Error logging hour:', err);
@@ -370,7 +527,9 @@ async function saveActivityLog() {
 // --- Delete Activity Log ---
 async function deleteActivityLog() {
   const dateStr = document.getElementById('currentDateStr') ? document.getElementById('currentDateStr').value : '';
-  if (!confirm('Clear activity for this hour?')) return;
+  const logIdVal = document.getElementById('modalLogIdInput') ? document.getElementById('modalLogIdInput').value : '';
+
+  if (!confirm(logIdVal ? 'Delete this activity entry?' : 'Clear activity for this hour?')) return;
 
   try {
     const res = await fetch('/api/delete-hour/', {
@@ -379,13 +538,25 @@ async function deleteActivityLog() {
         'Content-Type': 'application/json',
         'X-CSRFToken': csrftoken
       },
-      body: JSON.stringify({ date: dateStr, hour: activeHour })
+      body: JSON.stringify({
+        date: dateStr,
+        hour: activeHour,
+        log_id: logIdVal ? parseInt(logIdVal) : null
+      })
     });
     const data = await res.json();
     if (data.status === 'success') {
-      showiOSToast('Cleared', '✓');
-      closeLogModal();
-      setTimeout(() => { window.location.reload(); }, 250);
+      try {
+        sessionStorage.setItem('apple_post_delete_event', JSON.stringify({ hour: activeHour }));
+      } catch (e) {}
+
+      const modal = document.getElementById('activityModal');
+      if (modal) {
+        modal.classList.add('dismissing');
+      }
+      setTimeout(() => {
+        window.location.reload();
+      }, 220);
     }
   } catch (err) {
     console.error('Error deleting hour:', err);
@@ -707,4 +878,89 @@ document.addEventListener('DOMContentLoaded', () => {
   if (refreshQuoteBtn) {
     refreshQuoteBtn.addEventListener('click', fetchNewQuote);
   }
+
+  // Trigger Apple fluid post-log animation if an activity was just logged or cleared
+  runApplePostLogAnimation();
 });
+
+// --- Apple Post-Log Fluid Animation Runner ---
+function runApplePostLogAnimation() {
+  // Check for delete event
+  try {
+    const delRaw = sessionStorage.getItem('apple_post_delete_event');
+    if (delRaw) {
+      sessionStorage.removeItem('apple_post_delete_event');
+      showiOSToast('Cleared activity slot', '✓');
+      return;
+    }
+  } catch (e) {}
+
+  let eventData = null;
+  try {
+    const raw = sessionStorage.getItem('apple_post_log_event');
+    if (raw) {
+      eventData = JSON.parse(raw);
+      sessionStorage.removeItem('apple_post_log_event');
+    }
+  } catch (e) {
+    return;
+  }
+
+  if (!eventData) return;
+
+  const startHour = eventData.hour;
+  const spanH = eventData.span_hours || 1;
+  const color = eventData.category_color || 'var(--apple-blue)';
+  const title = eventData.title || 'Saved';
+
+  // Smooth scroll target card into view if needed
+  const targetCard = document.querySelector(`.grid-hour-card[data-hour="${startHour}"]`) ||
+                     document.querySelector(`.hour-row[data-hour="${startHour}"]`);
+  if (targetCard && targetCard.offsetParent !== null) {
+    targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Animate all hours covered by this activity (start + spanned cascade)
+  for (let h = startHour; h < Math.min(24, startHour + spanH); h++) {
+    const delay = (h - startHour) * 70; // Wave cascade across cards!
+    setTimeout(() => {
+      const cards = document.querySelectorAll(`[data-hour="${h}"]`);
+      cards.forEach(card => {
+        card.style.setProperty('--card-accent', color);
+        card.classList.add('apple-post-log-animate');
+
+        // Animate proportional fill expanding smoothly from 0
+        const fill = card.querySelector('.grid-card-fill, .row-card-fill');
+        if (fill) {
+          const finalWidth = fill.style.width || '100%';
+          fill.style.width = '0%';
+          fill.style.transition = 'width 0.85s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease';
+          requestAnimationFrame(() => {
+            fill.style.width = finalWidth;
+          });
+        }
+
+        // Shimmer beam sweep
+        const beam = document.createElement('div');
+        beam.className = 'apple-shimmer-beam';
+        card.appendChild(beam);
+
+        // Floating Apple badge on the primary hour card
+        if (h === startHour && card.classList.contains('grid-hour-card')) {
+          const badge = document.createElement('div');
+          badge.className = 'apple-saved-badge';
+          badge.innerHTML = `<span>✓</span> <span>${title}</span>`;
+          card.appendChild(badge);
+          setTimeout(() => badge.remove(), 1400);
+        }
+
+        setTimeout(() => {
+          card.classList.remove('apple-post-log-animate');
+          if (beam.parentElement) beam.remove();
+        }, 1200);
+      });
+    }, delay);
+  }
+
+  showiOSToast(`${title} logged`, '✓');
+}

@@ -72,11 +72,15 @@ class HourlyLog(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['date', 'hour']
-        unique_together = ('user', 'date', 'hour')
+        ordering = ['date', 'hour', 'created_at']
 
     def __str__(self):
         return f"{self.user.username} - {self.date} @ {self.hour:02d}:00 - {self.title}"
+
+    @property
+    def span_hours(self):
+        """Number of hour blocks this activity covers (minimum 1)"""
+        return max(1, math.ceil(self.duration_seconds / 3600.0))
 
     @property
     def hour_formatted(self):

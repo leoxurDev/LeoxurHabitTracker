@@ -228,20 +228,24 @@
   <!-- 1. List View (Vertical 24-Hour Ruler) -->
   <div class="timeline-grid fade-transition" id="timelineListView">
     {% for slot in timeline_hours %}
-    <div class="hour-row {% if slot.is_current %}is-current-hour{% endif %}"
+    <div class="hour-row {% if slot.is_current %}is-current-hour{% endif %} {% if slot.is_spanning_only %}is-spanning-row{% endif %}"
          data-hour="{{ slot.hour }}"
-         data-has-log="{% if slot.log %}true{% else %}false{% endif %}"
-         data-cat-name="{{ slot.log.category.name|lower|default:'' }}"
-         data-is-productive="{% if slot.log.category.is_productive %}true{% else %}false{% endif %}"
-         onclick="openLogModal({{ slot.hour }}, {
-           title: '{{ slot.log.title|escapejs|default:'' }}',
-           category_id: '{{ slot.log.category.id|default:'' }}',
-           duration_val: '{{ slot.log.duration_display|default:'1.0' }}',
-           unit_type: '{{ slot.log.unit_type|default:'hours' }}',
-           energy: {{ slot.log.energy_level|default:4 }},
-           notes: '{{ slot.log.notes|escapejs|default:'' }}'
-         })">
+         data-has-log="{% if slot.has_log %}true{% else %}false{% endif %}"
+         data-activities="{{ slot.activities_json|escape }}"
+         data-cat-name="{% if slot.log %}{{ slot.log.category.name|lower|default:'' }}{% endif %}"
+         data-is-productive="{% if slot.log and slot.log.category %}{% if slot.log.category.is_productive %}true{% else %}false{% endif %}{% else %}false{% endif %}"
+         style="{% if slot.has_log %}border-color: {{ slot.primary_color }}33;{% endif %}"
+         onclick="handleHourSlotClick({{ slot.hour }}, this, event)">
       
+      <!-- Proportional Color Fill Layer for List View -->
+      {% if slot.fill_pct > 0 %}
+      <div class="row-card-fill {% if slot.fill_pct >= 99.5 %}is-full{% endif %}"
+           style="width: {% if slot.fill_pct < 1 and slot.fill_pct > 0 %}4px{% else %}{{ slot.fill_pct }}%{% endif %};
+                  background: {{ slot.fill_background }};
+                  {% if slot.fill_pct < 99.5 %}border-right: 2px solid {{ slot.primary_color }}; box-shadow: 2px 0 6px {{ slot.primary_color }}40;{% endif %}">
+      </div>
+      {% endif %}
+
       <!-- Hour Label -->
       <div class="hour-time-badge">
         <span>{{ slot.label }}</span>
@@ -250,19 +254,7 @@
 
       <!-- Activity Content -->
       <div class="hour-content">
-        {% if slot.log %}
-          <div class="hour-cat-icon" style="background: {{ slot.log.category.color|default:'#0071E3' }}18; color: {{ slot.log.category.color|default:'#0071E3' }};">
-            {% category_sf_icon slot.log.category.name "sf-icon-sm" %}
-          </div>
-          <div class="hour-details">
-            <span class="hour-title">{{ slot.log.title }}</span>
-            {% if slot.log.notes %}
-              <span class="hour-notes">{{ slot.log.notes }}</span>
-            {% else %}
-              <span class="hour-notes" style="color: var(--text-tertiary);">{{ slot.log.category.name|default:'General' }}</span>
-            {% endif %}
-          </div>
-        {% else %}
+        {% if slot.activities_count == 0 %}
           <div class="hour-cat-icon" style="color: var(--text-tertiary);">
             {% sf_icon "plus" "sf-icon-sm" %}
           </div>
@@ -271,15 +263,60 @@
               Add entry...
             </span>
           </div>
+        {% elif slot.activities_count == 1 %}
+          {% with act=slot.activities.0 %}
+          <div class="hour-cat-icon" style="background: {{ act.category_color }}18; color: {{ act.category_color }};">
+            {% category_sf_icon act.category_name "sf-icon-sm" %}
+          </div>
+          <div class="hour-details">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span class="hour-title">{{ act.title }}</span>
+              {% if act.is_spanning %}
+                <span class="grid-span-badge">Spanned • {{ act.time_range }}</span>
+              {% endif %}
+            </div>
+            {% if act.notes %}
+              <span class="hour-notes">{{ act.notes }}</span>
+            {% else %}
+              <span class="hour-notes" style="color: var(--text-tertiary);">{{ act.category_name|default:'General' }}</span>
+            {% endif %}
+          </div>
+          {% endwith %}
+        {% else %}
+          <!-- Multiple Activities in this hour slot -->
+          <div style="display: flex; flex-direction: column; gap: 5px; width: 100%;">
+            {% for act in slot.activities %}
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 8px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-hairline); cursor: pointer;"
+                 onclick="event.stopPropagation(); handleActivityItemClick({{ slot.hour }}, {{ act.id }}, this.closest('.hour-row'));">
+              <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <span style="color: {{ act.category_color }}; display: inline-flex;">{% category_sf_icon act.category_name "sf-icon-xs" %}</span>
+                <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);">{{ act.title }}</span>
+                {% if act.is_spanning %}
+                  <span class="grid-span-badge" style="margin-top: 0;">Spanned • {{ act.time_range }}</span>
+                {% endif %}
+              </div>
+              <span class="duration-pill" style="background: {{ act.category_color }}; font-size: 10.5px; padding: 2px 7px; flex-shrink: 0;">{{ act.duration_display }}</span>
+            </div>
+            {% endfor %}
+          </div>
         {% endif %}
       </div>
 
-      <!-- Duration Pill -->
+      <!-- Actions -->
       <div class="hour-actions">
-        {% if slot.log %}
-          <span class="duration-pill" style="background: {{ slot.log.category.color|default:'var(--apple-blue)' }};">
-            {{ slot.log.duration_display }}
+        {% if slot.activities_count == 1 %}
+          {% with act=slot.activities.0 %}
+          <span class="duration-pill" style="background: {{ act.category_color }};">
+            {{ act.duration_display }}
           </span>
+          <button class="add-hour-btn" title="Add Another Activity" onclick="event.stopPropagation(); handleAddAnotherActivity({{ slot.hour }}, this.closest('.hour-row'));">
+            {% sf_icon "plus" "sf-icon-sm" %}
+          </button>
+          {% endwith %}
+        {% elif slot.activities_count > 1 %}
+          <button class="add-hour-btn" title="Add Another Activity" onclick="event.stopPropagation(); handleAddAnotherActivity({{ slot.hour }}, this.closest('.hour-row'));">
+            {% sf_icon "plus" "sf-icon-sm" %}
+          </button>
         {% else %}
           <button class="add-hour-btn" title="Add Activity">
             {% sf_icon "plus" "sf-icon-sm" %}
@@ -294,50 +331,87 @@
   <!-- 2. Grid View (Matrix Calendar 24-Block Layout) -->
   <div class="timeline-matrix-grid fade-transition" id="timelineGridView" style="display: none;">
     {% for slot in timeline_hours %}
-    <div class="grid-hour-card {% if slot.is_current %}is-current{% endif %}"
+    <div class="grid-hour-card {% if slot.is_current %}is-current{% endif %} {% if slot.is_spanning_only %}is-spanning{% endif %} {% if slot.has_log %}has-log-card{% endif %}"
          data-hour="{{ slot.hour }}"
-         data-has-log="{% if slot.log %}true{% else %}false{% endif %}"
-         data-cat-name="{{ slot.log.category.name|lower|default:'' }}"
-         data-is-productive="{% if slot.log.category.is_productive %}true{% else %}false{% endif %}"
-         onclick="openLogModal({{ slot.hour }}, {
-           title: '{{ slot.log.title|escapejs|default:'' }}',
-           category_id: '{{ slot.log.category.id|default:'' }}',
-           duration_val: '{{ slot.log.duration_display|default:'1.0' }}',
-           unit_type: '{{ slot.log.unit_type|default:'hours' }}',
-           energy: {{ slot.log.energy_level|default:4 }},
-           notes: '{{ slot.log.notes|escapejs|default:'' }}'
-         })">
+         data-has-log="{% if slot.has_log %}true{% else %}false{% endif %}"
+         data-activities="{{ slot.activities_json|escape }}"
+         data-cat-name="{% if slot.log %}{{ slot.log.category.name|lower|default:'' }}{% endif %}"
+         data-is-productive="{% if slot.log and slot.log.category %}{% if slot.log.category.is_productive %}true{% else %}false{% endif %}{% else %}false{% endif %}"
+         style="{% if slot.has_log %}border-color: {{ slot.primary_color }}3e;{% endif %}"
+         onclick="handleHourSlotClick({{ slot.hour }}, this, event)">
+
+      <!-- Proportional Color Fill Layer for Grid View -->
+      {% if slot.fill_pct > 0 %}
+      <div class="grid-card-fill {% if slot.fill_pct >= 99.5 %}is-full{% endif %}"
+           style="width: {% if slot.fill_pct < 1 and slot.fill_pct > 0 %}4px{% else %}{{ slot.fill_pct }}%{% endif %};
+                  background: {{ slot.fill_background }};
+                  {% if slot.fill_pct < 99.5 %}border-right: 2.5px solid {{ slot.primary_color }}; box-shadow: 2px 0 8px {{ slot.primary_color }}50;{% endif %}">
+      </div>
+      {% endif %}
 
       <div class="grid-hour-header">
         <span class="grid-hour-time">{{ slot.label_24 }}</span>
-        {% if slot.log %}
-          <span style="color: {{ slot.log.category.color|default:'#0071E3' }};">
-            {% category_sf_icon slot.log.category.name "sf-icon-sm" %}
-          </span>
-        {% else %}
-          <span style="color: var(--text-tertiary);">
-            {% sf_icon "plus" "sf-icon-sm" %}
-          </span>
-        {% endif %}
+        <div style="display: flex; align-items: center; gap: 6px;">
+          {% if slot.activities_count == 0 %}
+            <span style="color: var(--text-tertiary);">{% sf_icon "plus" "sf-icon-sm" %}</span>
+          {% elif slot.activities_count == 1 %}
+            <span style="color: {{ slot.activities.0.category_color }};">
+              {% category_sf_icon slot.activities.0.category_name "sf-icon-sm" %}
+            </span>
+            <button class="grid-quick-add-btn" title="Add another activity" onclick="event.stopPropagation(); handleAddAnotherActivity({{ slot.hour }}, this.closest('.grid-hour-card'));">
+              {% sf_icon "plus" "sf-icon-xs" %}
+            </button>
+          {% else %}
+            <span class="grid-multi-count-pill">{{ slot.activities_count }}</span>
+            <button class="grid-quick-add-btn" title="Add another activity" onclick="event.stopPropagation(); handleAddAnotherActivity({{ slot.hour }}, this.closest('.grid-hour-card'));">
+              {% sf_icon "plus" "sf-icon-xs" %}
+            </button>
+          {% endif %}
+        </div>
       </div>
 
       <div class="grid-hour-content">
-        {% if slot.log %}
-          <div class="grid-hour-title">{{ slot.log.title }}</div>
-        {% else %}
+        {% if slot.activities_count == 0 %}
           <div class="grid-hour-empty">Unscheduled</div>
+        {% elif slot.activities_count == 1 %}
+          {% with act=slot.activities.0 %}
+          <div class="grid-hour-title">{{ act.title }}</div>
+          {% if act.is_spanning %}
+            <div class="grid-span-badge">Spanned • {{ act.time_range }}</div>
+          {% endif %}
+          {% endwith %}
+        {% else %}
+          <!-- Multiple activities in grid slot -->
+          <div class="grid-multi-activities">
+            {% for act in slot.activities %}
+            <div class="grid-mini-act-item" onclick="event.stopPropagation(); handleActivityItemClick({{ slot.hour }}, {{ act.id }}, this.closest('.grid-hour-card'));">
+              <div class="grid-mini-act-left">
+                <span class="grid-mini-act-dot" style="background: {{ act.category_color }};"></span>
+                <span class="grid-mini-act-title">{{ act.title }}</span>
+              </div>
+              <span class="grid-mini-act-dur" style="background: {{ act.category_color }}22; color: {{ act.category_color }};">{{ act.duration_display }}</span>
+            </div>
+            {% endfor %}
+          </div>
         {% endif %}
       </div>
 
       <div class="grid-hour-footer">
-        {% if slot.log %}
-          <span class="duration-pill" style="background: {{ slot.log.category.color|default:'var(--apple-blue)' }}; font-size: 10px; padding: 2px 7px;">
-            {{ slot.log.duration_display }}
+        {% if slot.activities_count == 1 %}
+          {% with act=slot.activities.0 %}
+          <span class="duration-pill" style="background: {{ act.category_color }}; font-size: 10px; padding: 2px 7px;">
+            {{ act.duration_display }}
           </span>
           <span style="font-size: 11px; color: var(--text-secondary); font-weight: 500; display: inline-flex; align-items: center; gap: 3px;">
             {% sf_icon "bolt" "sf-icon-sm" %}
-            <span>{{ slot.log.energy_level }}</span>
+            <span>{{ act.energy_level }}</span>
           </span>
+          {% endwith %}
+        {% elif slot.activities_count > 1 %}
+          <span style="font-size: 11px; color: var(--apple-blue); font-weight: 600;">
+            {{ slot.activities_count }} items
+          </span>
+          <span style="font-size: 11px; color: var(--text-tertiary);">{{ slot.label }}</span>
         {% else %}
           <span style="font-size: 11px; color: var(--text-tertiary);">{{ slot.label }}</span>
         {% endif %}

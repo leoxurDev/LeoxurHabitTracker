@@ -1,4 +1,5 @@
 import json
+import math
 import datetime
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
@@ -148,6 +149,20 @@ def _seed_demo_logs(user):
         )
 
 
+def hex_to_rgba(hex_code, alpha=0.22):
+    """Convert hex color to rgba CSS string with given alpha transparency."""
+    hex_code = (hex_code or '#0071E3').lstrip('#')
+    if len(hex_code) == 3:
+        hex_code = ''.join([c*2 for c in hex_code])
+    try:
+        r = int(hex_code[0:2], 16)
+        g = int(hex_code[2:4], 16)
+        b = int(hex_code[4:6], 16)
+        return f"rgba({r}, {g}, {b}, {alpha})"
+    except (ValueError, IndexError):
+        return f"rgba(0, 113, 227, {alpha})"
+
+
 @login_required
 def dashboard_view(request):
     ensure_default_categories()
@@ -175,46 +190,215 @@ def dashboard_view(request):
     # Categories available to user (defaults + user created)
     categories = Category.objects.filter(Q(user=None) | Q(user=user))
 
-    # Retrieve 24 hourly logs for the selected date
-    logs = HourlyLog.objects.filter(user=user, date=current_date).select_related('category')
-    logs_by_hour = {log.hour: log for log in logs}
+    # Retrieve hourly logs for current_date and any potential spillover from prev_date
+    logs = HourlyLog.objects.filter(user=user, date=current_date).select_related('category').order_by('hour', 'created_at')
+    prev_logs = HourlyLog.objects.filter(user=user, date=prev_date).select_related('category')
 
-    # Build 24-hour slots structure
-    timeline_hours = []
-    current_system_hour = timezone.localtime().hour if current_date == today else -1
-
+    # Calculate aggregations strictly on distinct logs of current_date (avoiding duplicate summation)
     total_logged_seconds = 0
     productive_seconds = 0
     deep_work_seconds = 0
     health_seconds = 0
     mindfulness_seconds = 0
 
+    for log in logs:
+        total_logged_seconds += log.duration_seconds
+        if log.category:
+            if log.category.is_productive:
+                productive_seconds += log.duration_seconds
+            c_name = log.category.name.lower()
+            if 'work' in c_name or 'career' in c_name or 'code' in c_name:
+                deep_work_seconds += log.duration_seconds
+            elif 'health' in c_name or 'workout' in c_name or 'fitness' in c_name:
+                health_seconds += log.duration_seconds
+            elif 'mind' in c_name or 'meditat' in c_name or 'sleep' in c_name or 'learning' in c_name:
+                mindfulness_seconds += log.duration_seconds
+
+    # Helper function to format time range for spanning display
+    def get_time_range(start_h, duration_sec):
+        span_h = max(1, math.ceil(duration_sec / 3600.0))
+        end_h = (start_h + span_h) % 24
+        return f"{start_h:02d}:00–{end_h:02d}:00"
+
+    # Build 24-hour slots structure with multi-hour spanning, multiple activities, and proportional fill
+    timeline_hours = []
+    current_system_hour = timezone.localtime().hour if current_date == today else -1
+
     for h in range(24):
-        log = logs_by_hour.get(h)
+        slot_activities = []
+
+        # 1. Spanning spillover from yesterday's logs
+        for plog in prev_logs:
+            plog_span = max(1, math.ceil(plog.duration_seconds / 3600.0))
+            if plog.hour + plog_span > 24:
+                spill_hours = (plog.hour + plog_span) - 24
+                if h < spill_hours:
+                    span_idx = (24 - plog.hour) + h + 1
+                    slot_activities.append({
+                        'id': plog.id,
+                        'log': plog,
+                        'title': plog.title,
+                        'category': plog.category,
+                        'category_name': plog.category.name if plog.category else '',
+                        'category_icon': plog.category.icon if plog.category else '💼',
+                        'category_color': plog.category.color if plog.category else '#0071E3',
+                        'duration_display': plog.duration_display,
+                        'duration_seconds': plog.duration_seconds,
+                        'unit_type': plog.unit_type,
+                        'energy_level': plog.energy_level,
+                        'notes': plog.notes,
+                        'is_start': False,
+                        'is_spanning': True,
+                        'span_hours': plog_span,
+                        'span_index': span_idx,
+                        'time_range': get_time_range(plog.hour, plog.duration_seconds),
+                        'start_hour': plog.hour,
+                        'start_date': plog.date.strftime('%Y-%m-%d'),
+                    })
+
+        # 2. Activities starting or spanning on current_date
+        # Check logs that start at this hour or earlier today and span into hour h
+        for log in logs:
+            log_span = max(1, math.ceil(log.duration_seconds / 3600.0))
+            if log.hour == h:
+                # Primary start activity at hour h
+                slot_activities.append({
+                    'id': log.id,
+                    'log': log,
+                    'title': log.title,
+                    'category': log.category,
+                    'category_name': log.category.name if log.category else '',
+                    'category_icon': log.category.icon if log.category else '💼',
+                    'category_color': log.category.color if log.category else '#0071E3',
+                    'duration_display': log.duration_display,
+                    'duration_seconds': log.duration_seconds,
+                    'unit_type': log.unit_type,
+                    'energy_level': log.energy_level,
+                    'notes': log.notes,
+                    'is_start': True,
+                    'is_spanning': False,
+                    'span_hours': log_span,
+                    'span_index': 1,
+                    'time_range': get_time_range(log.hour, log.duration_seconds),
+                    'start_hour': log.hour,
+                    'start_date': log.date.strftime('%Y-%m-%d'),
+                })
+            elif log.hour < h and (log.hour + log_span) > h:
+                # Spanned continuation of multi-hour activity started earlier today
+                span_idx = (h - log.hour) + 1
+                slot_activities.append({
+                    'id': log.id,
+                    'log': log,
+                    'title': log.title,
+                    'category': log.category,
+                    'category_name': log.category.name if log.category else '',
+                    'category_icon': log.category.icon if log.category else '💼',
+                    'category_color': log.category.color if log.category else '#0071E3',
+                    'duration_display': log.duration_display,
+                    'duration_seconds': log.duration_seconds,
+                    'unit_type': log.unit_type,
+                    'energy_level': log.energy_level,
+                    'notes': log.notes,
+                    'is_start': False,
+                    'is_spanning': True,
+                    'span_hours': log_span,
+                    'span_index': span_idx,
+                    'time_range': get_time_range(log.hour, log.duration_seconds),
+                    'start_hour': log.hour,
+                    'start_date': log.date.strftime('%Y-%m-%d'),
+                })
+
+        # Calculate exact proportional seconds and fill percentage for this 1-hour slot (0 to 3600 seconds)
+        slot_start_sec = h * 3600
+        slot_end_sec = (h + 1) * 3600
+
+        for a in slot_activities:
+            if a.get('start_date') == prev_date.strftime('%Y-%m-%d'):
+                a_start_sec = a['start_hour'] * 3600 - 86400
+            else:
+                a_start_sec = a['start_hour'] * 3600
+            a_end_sec = a_start_sec + a['duration_seconds']
+            overlap_s = max(0, min(slot_end_sec, a_end_sec) - max(slot_start_sec, a_start_sec))
+            a['overlap_seconds'] = overlap_s
+            a['overlap_pct'] = min(100.0, round((overlap_s / 3600.0) * 100.0, 1))
+
+        total_slot_seconds = sum(a.get('overlap_seconds', 0) for a in slot_activities)
+        fill_pct = min(100.0, round((total_slot_seconds / 3600.0) * 100.0, 1))
+
+        # Generate sleek Apple tinted fill background based on the activity colors
+        fill_background = ""
+        primary_color = "#0071E3"
+        if slot_activities:
+            primary_color = slot_activities[0]['category_color'] or "#0071E3"
+            if len(slot_activities) == 1:
+                fill_background = hex_to_rgba(primary_color, 0.22)
+            else:
+                # Multi-activity segmented linear gradient
+                stops = []
+                accum_pct = 0.0
+                for a in slot_activities:
+                    act_color = hex_to_rgba(a['category_color'] or "#0071E3", 0.25)
+                    act_pct = a.get('overlap_pct', 0.0)
+                    next_accum = min(100.0, accum_pct + act_pct)
+                    stops.append(f"{act_color} {accum_pct:.1f}%")
+                    stops.append(f"{act_color} {next_accum:.1f}%")
+                    accum_pct = next_accum
+                if accum_pct < 100.0:
+                    stops.append(f"transparent {accum_pct:.1f}%")
+                    stops.append(f"transparent 100%")
+                fill_background = f"linear-gradient(to right, {', '.join(stops)})"
+
         period = "AM" if h < 12 else "PM"
         display_h = 12 if h % 12 == 0 else h % 12
         hour_label = f"{display_h:02d}:00 {period}"
         hour_24 = f"{h:02d}:00"
 
-        if log:
-            total_logged_seconds += log.duration_seconds
-            if log.category:
-                if log.category.is_productive:
-                    productive_seconds += log.duration_seconds
-                c_name = log.category.name.lower()
-                if 'work' in c_name or 'career' in c_name or 'code' in c_name:
-                    deep_work_seconds += log.duration_seconds
-                elif 'health' in c_name or 'workout' in c_name or 'fitness' in c_name:
-                    health_seconds += log.duration_seconds
-                elif 'mind' in c_name or 'meditat' in c_name or 'sleep' in c_name or 'learning' in c_name:
-                    mindfulness_seconds += log.duration_seconds
+        # Primary log pointer for backward compatibility with existing templates/scripts
+        primary_activity = slot_activities[0] if slot_activities else None
+        primary_log = primary_activity['log'] if primary_activity else None
+
+        # Build clean JSON serializable activities list for client modal interaction
+        activities_client_data = [
+            {
+                'id': a['id'],
+                'title': a['title'],
+                'category_id': a['category'].id if a['category'] else '',
+                'category_name': a['category_name'],
+                'category_icon': a['category_icon'],
+                'category_color': a['category_color'],
+                'duration_val': a['duration_display'],
+                'duration_seconds': a['duration_seconds'],
+                'unit_type': a['unit_type'],
+                'energy': a['energy_level'],
+                'notes': a['notes'],
+                'is_start': a['is_start'],
+                'is_spanning': a['is_spanning'],
+                'span_hours': a['span_hours'],
+                'span_index': a['span_index'],
+                'time_range': a['time_range'],
+                'start_hour': a['start_hour'],
+                'overlap_seconds': a.get('overlap_seconds', 0),
+                'overlap_pct': a.get('overlap_pct', 0.0),
+            }
+            for a in slot_activities
+        ]
 
         timeline_hours.append({
             'hour': h,
             'label': hour_label,
             'label_24': hour_24,
             'is_current': (h == current_system_hour),
-            'log': log,
+            'log': primary_log,
+            'activities': slot_activities,
+            'activities_count': len(slot_activities),
+            'activities_json': json.dumps(activities_client_data),
+            'has_log': len(slot_activities) > 0,
+            'is_spanning_only': (len(slot_activities) > 0 and all(a['is_spanning'] for a in slot_activities)),
+            'primary_activity': primary_activity,
+            'fill_pct': fill_pct,
+            'fill_background': fill_background,
+            'primary_color': primary_color,
+            'total_slot_seconds': total_slot_seconds,
         })
 
     # Duration aggregations
@@ -274,12 +458,14 @@ def api_log_hour(request):
     """
     Ajax endpoint to add or update an hourly activity.
     Supports units in hours, minutes, or seconds!
+    Supports updating a specific log_id or creating additional activities in the same hour.
     """
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
         data = request.POST
 
+    log_id = data.get('log_id')
     date_str = data.get('date')
     hour = int(data.get('hour', 0))
     title = data.get('title', '').strip()
@@ -313,20 +499,37 @@ def api_log_hour(request):
     if not title:
         title = category.name if category else f"Hour {hour:02d}:00 Activity"
 
-    log, created = HourlyLog.objects.update_or_create(
-        user=request.user,
-        date=log_date,
-        hour=hour,
-        defaults={
-            'title': title,
-            'category': category,
-            'duration_seconds': duration_seconds,
-            'unit_type': unit_type,
-            'notes': notes,
-            'energy_level': energy_level,
-            'completed': True
-        }
-    )
+    log = None
+    created = False
+    if log_id:
+        try:
+            log = HourlyLog.objects.get(id=int(log_id), user=request.user)
+            log.title = title
+            log.category = category
+            log.duration_seconds = duration_seconds
+            log.unit_type = unit_type
+            log.notes = notes
+            log.energy_level = energy_level
+            log.completed = True
+            log.save()
+            created = False
+        except (HourlyLog.DoesNotExist, ValueError):
+            log = None
+
+    if log is None:
+        log = HourlyLog.objects.create(
+            user=request.user,
+            date=log_date,
+            hour=hour,
+            title=title,
+            category=category,
+            duration_seconds=duration_seconds,
+            unit_type=unit_type,
+            notes=notes,
+            energy_level=energy_level,
+            completed=True
+        )
+        created = True
 
     return JsonResponse({
         'status': 'success',
@@ -337,7 +540,7 @@ def api_log_hour(request):
             'title': log.title,
             'category_name': category.name if category else '',
             'category_icon': category.icon if category else '💼',
-            'category_color': category.color if category else '#007AFF',
+            'category_color': category.color if category else '#0071E3',
             'duration_display': log.duration_display,
             'duration_seconds': log.duration_seconds,
             'unit_type': log.unit_type,
@@ -350,14 +553,22 @@ def api_log_hour(request):
 @login_required
 @require_POST
 def api_delete_hour(request):
-    """Delete an hourly log."""
+    """Delete a specific activity by log_id, or clear an hour slot."""
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
         data = request.POST
 
+    log_id = data.get('log_id')
     date_str = data.get('date')
     hour = int(data.get('hour', 0))
+
+    if log_id:
+        try:
+            HourlyLog.objects.filter(id=int(log_id), user=request.user).delete()
+            return JsonResponse({'status': 'success', 'deleted_id': log_id})
+        except ValueError:
+            pass
 
     try:
         log_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
