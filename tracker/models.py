@@ -22,6 +22,7 @@ UNIT_CHOICES = [
 
 
 GLOBAL_LANGUAGES = [
+    ('ta', 'தமிழ் (Tamil)'),
     ('en', 'English (US / UK)'),
     ('es', 'Español (Spanish)'),
     ('fr', 'Français (French)'),
@@ -35,7 +36,6 @@ GLOBAL_LANGUAGES = [
     ('ko', '한국어 (Korean)'),
     ('ar', 'العربية (Arabic)'),
     ('hi', 'हिन्दी (Hindi)'),
-    ('ta', 'தமிழ் (Tamil)'),
     ('te', 'తెలుగు (Telugu)'),
     ('bn', 'বাংলা (Bengali)'),
     ('mr', 'मराठी (Marathi)'),
@@ -110,6 +110,11 @@ COMMON_TIMEZONES = [
     ('Pacific/Auckland', 'Pacific/Auckland (New Zealand - NZST / NZDT)'),
 ]
 
+AI_MODE_CHOICES = [
+    ('cloud', 'Cloud AI Mode (Gemini, Groq, OpenAI, Claude, Ollama)'),
+    ('local', 'Non-AI Local Engine Mode (100% Offline, Zero API Keys)'),
+]
+
 AI_PROVIDER_CHOICES = [
     ('gemini', 'Google Gemini (Free Tier Available)'),
     ('groq', 'Groq Cloud (100% Free Ultra-Fast Tier)'),
@@ -134,6 +139,7 @@ class UserProfile(models.Model):
     gemini_api_key = models.CharField(max_length=255, blank=True, default='')
     language = models.CharField(max_length=20, default='en', choices=GLOBAL_LANGUAGES)
     timezone = models.CharField(max_length=64, default='Asia/Kolkata')
+    ai_mode = models.CharField(max_length=20, default='cloud', choices=AI_MODE_CHOICES)
     ai_provider = models.CharField(max_length=30, default='gemini', choices=AI_PROVIDER_CHOICES)
     ai_api_key = models.CharField(max_length=255, blank=True, default='')
     ai_model = models.CharField(max_length=100, blank=True, default='')
@@ -151,9 +157,15 @@ class UserProfile(models.Model):
     def get_timezone_display_text(self):
         return dict(COMMON_TIMEZONES).get(self.timezone, self.timezone)
 
-    def get_active_ai_key(self):
-        """Return ai_api_key or fallback to gemini_api_key"""
+    def get_saved_ai_key(self):
+        """Return raw configured API key regardless of operational mode (for settings form display)."""
         return (self.ai_api_key.strip() or self.gemini_api_key.strip())
+
+    def get_active_ai_key(self):
+        """Return active API key for live AI execution. Returns empty in local mode to enforce 100% offline."""
+        if getattr(self, 'ai_mode', 'cloud') == 'local':
+            return ''
+        return self.get_saved_ai_key()
 
     def get_effective_ai_model(self):
         """Return user-configured model or provider default"""
@@ -171,6 +183,17 @@ class UserProfile(models.Model):
 
     def get_ai_status_display(self):
         """Return a descriptive status dictionary for UI badges and headers."""
+        if getattr(self, 'ai_mode', 'cloud') == 'local':
+            return {
+                'is_online': False,
+                'provider': 'Local',
+                'model': 'Deterministic Engine',
+                'short_model': 'Local',
+                'badge_text': 'Local Engine Active',
+                'color': 'var(--apple-blue)',
+                'mode': 'local'
+            }
+
         key = self.get_active_ai_key()
         provider = (self.ai_provider or 'gemini').lower()
         model = self.get_effective_ai_model()
@@ -179,10 +202,11 @@ class UserProfile(models.Model):
             return {
                 'is_online': False,
                 'provider': 'Local',
-                'model': 'Rules Engine',
+                'model': 'Deterministic Engine',
                 'short_model': 'Local',
-                'badge_text': 'Local Engine',
-                'color': 'var(--apple-blue)'
+                'badge_text': 'Local Engine Active',
+                'color': 'var(--apple-blue)',
+                'mode': 'local'
             }
 
         provider_names = {
@@ -194,7 +218,6 @@ class UserProfile(models.Model):
             'custom': 'Ollama'
         }
         p_name = provider_names.get(provider, provider.title())
-        # Clean up model display name (e.g. 'openai/gpt-oss-20b' -> 'gpt-oss-20b')
         short_model = model.split('/')[-1].replace(':free', '')
         if len(short_model) > 16:
             short_model = short_model[:15] + '…'
@@ -205,7 +228,8 @@ class UserProfile(models.Model):
             'model': model,
             'short_model': short_model,
             'badge_text': f"{p_name} • {short_model}",
-            'color': 'var(--apple-green)'
+            'color': 'var(--apple-green)',
+            'mode': 'cloud'
         }
 
 

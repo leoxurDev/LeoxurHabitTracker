@@ -133,64 +133,111 @@
 
     <form method="POST" action="{% url 'settings' %}" id="aiConfigForm">
       {% csrf_token %}
-      <input type="hidden" name="action" value="ai">
+      <input type="hidden" name="action" id="aiFormAction" value="ai">
+      <input type="hidden" name="ai_mode" id="aiModeInput" value="{{ profile.ai_mode|default:'cloud' }}">
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-        <!-- Provider Selector -->
-        <div class="ios-form-group">
-          <label class="ios-label">AI Provider</label>
-          <select name="ai_provider" id="aiProviderSelect" class="ios-select" onchange="onAiProviderChange()">
-            {% for p_val, p_name in ai_provider_choices %}
-            <option value="{{ p_val }}" {% if profile.ai_provider == p_val %}selected{% endif %}>{{ p_name }}</option>
-            {% endfor %}
-          </select>
+      <!-- Apple Segmented Mode Switcher: Cloud AI vs Non-AI Local Engine -->
+      <div class="ios-segmented-control" style="margin-bottom: 18px;">
+        <div class="segmented-option {% if profile.ai_mode != 'local' %}active{% endif %}" id="segmentModeCloud" onclick="switchAiMode('cloud')">
+          ⚡ Cloud AI Mode (Multi-Model)
         </div>
-
-        <!-- Deployment Model Name -->
-        <div class="ios-form-group">
-          <label class="ios-label">Deployment Model</label>
-          <input type="text" id="aiModelInput" name="ai_model" class="ios-input" value="{{ profile.ai_model }}" placeholder="{{ profile.get_effective_ai_model }}" list="suggestedModelsList">
-          <datalist id="suggestedModelsList">
-            <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Free)</option>
-            <option value="gemini-2.0-flash">Google Gemini 2.0 Flash (Free)</option>
-            <option value="llama-3.3-70b-versatile">Groq Llama 3.3 70B (100% Free)</option>
-            <option value="llama-3.1-8b-instant">Groq Llama 3.1 8B (100% Free)</option>
-            <option value="gpt-4o-mini">OpenAI GPT-4o-mini</option>
-            <option value="gpt-4o">OpenAI GPT-4o</option>
-            <option value="claude-3-5-sonnet-20241022">Anthropic Claude 3.5 Sonnet</option>
-            <option value="claude-3-5-haiku-20241022">Anthropic Claude 3.5 Haiku</option>
-            <option value="meta-llama/llama-3.2-3b-instruct:free">OpenRouter Llama 3.2 3B (Free)</option>
-            <option value="llama3.2">Ollama Local Llama 3.2</option>
-          </datalist>
+        <div class="segmented-option {% if profile.ai_mode == 'local' %}active{% endif %}" id="segmentModeLocal" onclick="switchAiMode('local')">
+          🔒 Non-AI Local Mode (100% Offline)
         </div>
       </div>
 
-      <!-- API Key Field -->
-      <div class="ios-form-group" id="apiKeyFormGroup">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <label class="ios-label" id="apiKeyLabel" style="margin-bottom: 0;">API Key</label>
-          <span id="freeKeyHelperLink" style="font-size: 11.5px; color: var(--apple-blue); font-weight: 500; cursor: pointer;" onclick="scrollToFreeKeyGuide()">
-            How to get Free API Key? ↘
+      <!-- Non-AI Local Engine Explanatory Banner Card -->
+      <div id="localModeInfoCard" style="display: {% if profile.ai_mode == 'local' %}block{% else %}none{% endif %}; background: rgba(0, 122, 255, 0.08); border: 1px solid rgba(0, 122, 255, 0.22); border-radius: 14px; padding: 16px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <div style="font-size: 26px; line-height: 1;">🔒</div>
+          <div style="flex: 1;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--apple-blue); margin-bottom: 4px;">
+              Local Autonomous Engine Active
+            </div>
+            <div style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 10px;">
+              Habit Intelligence operates <strong>100% offline</strong> directly on your server using deterministic rule-based intelligence. Zero external API calls are made and no keys are needed.
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 11.5px; color: var(--text-primary);">
+              <div>✓ 0ms Network Latency & Zero Cost</div>
+              <div>✓ Stopwatch Logging & Timer Commits</div>
+              <div>✓ 24-Hour Slot Management & Resets</div>
+              <div>✓ Multi-Language & Timezone Adaptation</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cloud AI Settings Container -->
+      <div id="cloudAiOptionsSection" style="display: {% if profile.ai_mode == 'local' %}none{% else %}block{% endif %};">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <!-- Provider Selector -->
+          <div class="ios-form-group">
+            <label class="ios-label">AI Provider</label>
+            <select name="ai_provider" id="aiProviderSelect" class="ios-select" onchange="onAiProviderChange()">
+              {% for p_val, p_name in ai_provider_choices %}
+              <option value="{{ p_val }}" {% if profile.ai_provider == p_val %}selected{% endif %}>{{ p_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Deployment Model Name -->
+          <div class="ios-form-group">
+            <label class="ios-label">Deployment Model</label>
+            <input type="text" id="aiModelInput" name="ai_model" class="ios-input" value="{{ profile.ai_model }}" placeholder="{{ profile.get_effective_ai_model }}" list="suggestedModelsList">
+            <datalist id="suggestedModelsList">
+              <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Free)</option>
+              <option value="gemini-2.0-flash">Google Gemini 2.0 Flash (Free)</option>
+              <option value="llama-3.3-70b-versatile">Groq Llama 3.3 70B (100% Free)</option>
+              <option value="llama-3.1-8b-instant">Groq Llama 3.1 8B (100% Free)</option>
+              <option value="gpt-4o-mini">OpenAI GPT-4o-mini</option>
+              <option value="gpt-4o">OpenAI GPT-4o</option>
+              <option value="claude-3-5-sonnet-20241022">Anthropic Claude 3.5 Sonnet</option>
+              <option value="claude-3-5-haiku-20241022">Anthropic Claude 3.5 Haiku</option>
+              <option value="meta-llama/llama-3.2-3b-instruct:free">OpenRouter Llama 3.2 3B (Free)</option>
+              <option value="llama3.2">Ollama Local Llama 3.2</option>
+            </datalist>
+          </div>
+        </div>
+
+        <!-- API Key Field -->
+        <div class="ios-form-group" id="apiKeyFormGroup">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="ios-label" id="apiKeyLabel" style="margin-bottom: 0;">API Key</label>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              {% if profile.get_saved_ai_key %}
+              <button type="button" class="ios-btn-secondary" style="padding: 2px 8px; font-size: 11px; height: 22px; color: var(--apple-red); border-color: rgba(255, 69, 58, 0.3);" onclick="clearApiKeyField()" title="Clear and remove API Key">
+                ✕ Clear Key
+              </button>
+              {% endif %}
+              <span id="freeKeyHelperLink" style="font-size: 11.5px; color: var(--apple-blue); font-weight: 500; cursor: pointer;" onclick="scrollToFreeKeyGuide()">
+                How to get Free API Key? ↘
+              </span>
+            </div>
+          </div>
+          <div style="position: relative; display: flex; align-items: center;">
+            <input type="password" id="aiApiKeyInput" name="ai_api_key" class="ios-input" value="{{ profile.get_saved_ai_key }}" placeholder="Paste your API key here (leave empty for local fallback)..." style="padding-right: 76px; font-family: monospace; font-size: 13px; letter-spacing: 0.03em;">
+            <div style="position: absolute; right: 6px; display: flex; align-items: center; gap: 4px;">
+              <button type="button" id="quickClearInputBtn" class="ios-icon-btn" style="width: 28px; height: 28px; border: none; background: transparent; cursor: pointer; color: var(--text-tertiary);" title="Clear text" onclick="clearApiKeyField()">
+                ✕
+              </button>
+              <button type="button" id="toggleApiKeyVisibilityBtn" class="ios-icon-btn" style="width: 28px; height: 28px; border: none; background: transparent; cursor: pointer;" title="Show/Hide Key" onclick="toggleApiKeyVisibility()">
+                {% sf_icon "eye" "sf-icon-xs" %}
+              </button>
+            </div>
+          </div>
+          <span id="apiKeyHintText" style="font-size: 12px; color: var(--text-tertiary); margin-top: 5px; display: block;">
+            Free tier available with high rate limits. If empty, local engine runs natively.
           </span>
         </div>
-        <div style="position: relative; display: flex; align-items: center;">
-          <input type="password" id="aiApiKeyInput" name="ai_api_key" class="ios-input" value="{{ profile.get_active_ai_key }}" placeholder="Paste your API key here..." style="padding-right: 44px; font-family: monospace; font-size: 13px; letter-spacing: 0.03em;">
-          <button type="button" id="toggleApiKeyVisibilityBtn" class="ios-icon-btn" style="position: absolute; right: 6px; width: 30px; height: 30px; border: none; background: transparent; cursor: pointer;" title="Show/Hide Key" onclick="toggleApiKeyVisibility()">
-            {% sf_icon "eye" "sf-icon-xs" %}
-          </button>
-        </div>
-        <span id="apiKeyHintText" style="font-size: 12px; color: var(--text-tertiary); margin-top: 5px; display: block;">
-          Free tier available with high rate limits. If empty, local engine runs natively.
-        </span>
-      </div>
 
-      <!-- Custom / Local Endpoint (Ollama / vLLM / LM Studio) -->
-      <div class="ios-form-group" id="customEndpointGroup" style="{% if profile.ai_provider != 'custom' %}display: none;{% endif %}">
-        <label class="ios-label">Custom API Base URL (OpenAI-Compatible)</label>
-        <input type="text" id="aiCustomEndpointInput" name="ai_custom_endpoint" class="ios-input" value="{{ profile.ai_custom_endpoint }}" placeholder="http://localhost:11434/v1">
-        <span style="font-size: 11.5px; color: var(--text-tertiary); margin-top: 4px; display: block;">
-          For local Ollama: <code>http://localhost:11434/v1</code>. For vLLM: <code>http://localhost:8000/v1</code>.
-        </span>
+        <!-- Custom / Local Endpoint (Ollama / vLLM / LM Studio) -->
+        <div class="ios-form-group" id="customEndpointGroup" style="{% if profile.ai_provider != 'custom' %}display: none;{% endif %}">
+          <label class="ios-label">Custom API Base URL (OpenAI-Compatible)</label>
+          <input type="text" id="aiCustomEndpointInput" name="ai_custom_endpoint" class="ios-input" value="{{ profile.ai_custom_endpoint }}" placeholder="http://localhost:11434/v1">
+          <span style="font-size: 11.5px; color: var(--text-tertiary); margin-top: 4px; display: block;">
+            For local Ollama: <code>http://localhost:11434/v1</code>. For vLLM: <code>http://localhost:8000/v1</code>.
+          </span>
+        </div>
       </div>
 
       <!-- Capabilities Overview Grid -->
@@ -213,9 +260,14 @@
         <button type="submit" class="ios-btn-primary" style="height: 40px; flex: 1; min-width: 180px;">
           Save AI Configuration
         </button>
-        <button type="button" id="testAiConnectionBtn" class="ios-btn-secondary" style="height: 40px; padding: 0 16px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;" onclick="testAiConnectionAjax()">
+        <button type="button" id="testAiConnectionBtn" class="ios-btn-secondary" style="height: 40px; padding: 0 16px; display: {% if profile.ai_mode == 'local' %}none{% else %}inline-flex{% endif %}; align-items: center; gap: 6px; cursor: pointer;" onclick="testAiConnectionAjax()">
           <span>Test Connection & Auto-Detect</span> ⚡
         </button>
+        {% if profile.get_saved_ai_key %}
+        <button type="submit" name="action" value="clear_ai_key" class="ios-btn-secondary" style="height: 40px; padding: 0 14px; color: var(--apple-red); border-color: rgba(255, 69, 58, 0.3); cursor: pointer;" title="Completely remove and wipe API Key">
+          Disconnect Key
+        </button>
+        {% endif %}
       </div>
 
       <div id="aiTestFeedback" style="display: none; margin-top: 12px; font-size: 12.5px; border-radius: 10px; padding: 12px 14px;"></div>
@@ -606,6 +658,46 @@
     } catch (e) {
       console.error(e);
     }
+  }
+
+  function switchAiMode(mode) {
+    const modeInput = document.getElementById('aiModeInput');
+    const segCloud = document.getElementById('segmentModeCloud');
+    const segLocal = document.getElementById('segmentModeLocal');
+    const cloudOptions = document.getElementById('cloudAiOptionsSection');
+    const localInfo = document.getElementById('localModeInfoCard');
+    const testBtn = document.getElementById('testAiConnectionBtn');
+    const badge = document.getElementById('aiConnectionStatusBadge');
+
+    if (modeInput) modeInput.value = mode;
+
+    if (mode === 'local') {
+      if (segCloud) segCloud.classList.remove('active');
+      if (segLocal) segLocal.classList.add('active');
+      if (cloudOptions) cloudOptions.style.display = 'none';
+      if (localInfo) localInfo.style.display = 'block';
+      if (testBtn) testBtn.style.display = 'none';
+      if (badge) {
+        badge.innerHTML = `<span class="ai-status-pill offline" style="font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 999px; background: rgba(0, 122, 255, 0.12); color: var(--apple-blue); display: inline-flex; align-items: center; gap: 5px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: var(--apple-blue); display: inline-block;"></span> Local Autonomous Engine</span>`;
+      }
+      showiOSToast('Switched to Non-AI Local Engine Mode (100% Offline)', '🔒');
+    } else {
+      if (segLocal) segLocal.classList.remove('active');
+      if (segCloud) segCloud.classList.add('active');
+      if (cloudOptions) cloudOptions.style.display = 'block';
+      if (localInfo) localInfo.style.display = 'none';
+      if (testBtn) testBtn.style.display = 'inline-flex';
+      showiOSToast('Switched to Cloud AI Mode', '⚡');
+    }
+  }
+
+  function clearApiKeyField() {
+    const input = document.getElementById('aiApiKeyInput');
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+    showiOSToast('API Key cleared from field. Click "Save AI Configuration" to save changes.', '🗑️');
   }
 
   function onAiProviderChange() {

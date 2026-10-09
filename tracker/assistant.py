@@ -160,6 +160,40 @@ class HabitIntelligence:
                     'payload': {'ai_connected': True, 'provider': prov}
                 }
 
+        # 0.001 AI Mode Switching & API Key Management via Chat
+        if any(p in text for p in ['switch to non-ai mode', 'switch to non ai mode', 'switch to local mode', 'enable local mode', 'enable non-ai mode', 'turn off ai', 'disable ai', 'offline mode']):
+            if self.profile:
+                self.profile.ai_mode = 'local'
+                self.profile.save(update_fields=['ai_mode'])
+            return {
+                'reply': "🔒 **Switched to Non-AI Local Mode.**\n\nHabit Intelligence is now operating in **100% Offline Local Engine Mode**.\n\n• Zero API keys required or stored\n• Zero cloud requests or external latency\n• Full autonomous local execution: stopwatch tracking, hourly logging, slot clears, and analytics work directly on-device.",
+                'action_type': 'general',
+                'payload': {'ai_mode': 'local', 'badge_text': 'Local Engine Active'}
+            }
+
+        if any(p in text for p in ['switch to ai mode', 'switch to cloud ai mode', 'switch to cloud mode', 'enable ai mode', 'turn on ai', 'activate ai mode']):
+            if self.profile:
+                self.profile.ai_mode = 'cloud'
+                self.profile.save(update_fields=['ai_mode'])
+            has_key = bool(self.get_active_ai_key())
+            key_msg = f"Connected to **{self.profile.get_ai_provider_display()}** (`{self.profile.get_effective_ai_model()}`)." if has_key else "No API key configured. You can paste an API key here or visit **Settings > Habit Intelligence**."
+            return {
+                'reply': f"⚡ **Switched to Cloud AI Mode.**\n\n{key_msg}",
+                'action_type': 'general',
+                'payload': {'ai_mode': 'cloud', 'ai_connected': has_key}
+            }
+
+        if any(p in text for p in ['clear api key', 'remove api key', 'delete api key', 'disconnect api key', 'clear my key', 'clear key']):
+            if self.profile:
+                self.profile.ai_api_key = ''
+                self.profile.gemini_api_key = ''
+                self.profile.save(update_fields=['ai_api_key', 'gemini_api_key'])
+            return {
+                'reply': "🗑️ **API Key Removed Successfully.**\n\nYour API key has been cleared from your profile. Habit Intelligence is running safely on the built-in Local Autonomous Engine.",
+                'action_type': 'general',
+                'payload': {'api_key_cleared': True, 'badge_text': 'Local Engine Active'}
+            }
+
         # 0.01 High Priority: Stopwatch Commit / Logging Intent
         if 'stopwatch' in text and any(w in text for w in ['log', 'add', 'record', 'save', 'commit', 'as per']):
             raw_title = ''

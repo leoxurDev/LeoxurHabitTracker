@@ -1105,24 +1105,47 @@ def settings_view(request):
         action = request.POST.get('action', 'profile')
 
         if action == 'ai':
-            # Save Habit Intelligence AI configuration (Gemini, Groq, OpenAI, Claude, OpenRouter, Custom)
+            # Save Habit Intelligence AI configuration (Mode: Cloud vs Local, Provider, Key, Model, Endpoint)
+            ai_mode = request.POST.get('ai_mode', 'cloud').strip().lower()
+            if ai_mode not in ['cloud', 'local']:
+                ai_mode = 'cloud'
+            profile.ai_mode = ai_mode
+
             ai_provider = request.POST.get('ai_provider', 'gemini').strip().lower()
             ai_key = request.POST.get('ai_api_key', '').strip()
             ai_model = request.POST.get('ai_model', '').strip()
             ai_custom_endpoint = request.POST.get('ai_custom_endpoint', '').strip()
 
             profile.ai_provider = ai_provider
-            profile.ai_api_key = ai_key
-            if ai_provider == 'gemini' and ai_key:
-                profile.gemini_api_key = ai_key
-            elif not profile.gemini_api_key and ai_key:
-                profile.gemini_api_key = ai_key
-
             profile.ai_model = ai_model
             profile.ai_custom_endpoint = ai_custom_endpoint
-            profile.save(update_fields=['ai_provider', 'ai_api_key', 'gemini_api_key', 'ai_model', 'ai_custom_endpoint'])
 
-            messages.success(request, f'Habit Intelligence AI configured successfully ({profile.get_ai_provider_display()} • {profile.get_effective_ai_model()})!')
+            # CRITICAL: If key is emptied/cleared by user, wipe BOTH ai_api_key AND gemini_api_key!
+            if not ai_key:
+                profile.ai_api_key = ''
+                profile.gemini_api_key = ''
+            else:
+                profile.ai_api_key = ai_key
+                if ai_provider == 'gemini':
+                    profile.gemini_api_key = ai_key
+
+            profile.save(update_fields=['ai_mode', 'ai_provider', 'ai_api_key', 'gemini_api_key', 'ai_model', 'ai_custom_endpoint'])
+
+            if ai_mode == 'local':
+                messages.success(request, 'Switched to Non-AI Local Engine Mode. Habit Intelligence is now 100% offline with zero cloud API calls.')
+            else:
+                if ai_key or ai_provider == 'custom':
+                    messages.success(request, f'Habit Intelligence AI configured successfully ({profile.get_ai_provider_display()} • {profile.get_effective_ai_model()})!')
+                else:
+                    messages.info(request, 'Cloud AI Mode selected. No API key provided, so the local fallback engine will execute tasks.')
+            return redirect('settings')
+
+        elif action == 'clear_ai_key':
+            # Dedicated one-tap API Key disconnect/wipe
+            profile.ai_api_key = ''
+            profile.gemini_api_key = ''
+            profile.save(update_fields=['ai_api_key', 'gemini_api_key'])
+            messages.success(request, 'API Key completely removed from your profile. Local engine is active.')
             return redirect('settings')
 
         elif action == 'smtp':
@@ -1171,7 +1194,7 @@ def settings_view(request):
             messages.success(request, 'Preferences & Timezone have been updated!')
             return redirect('settings')
 
-    from .models import GLOBAL_LANGUAGES, COMMON_TIMEZONES, AI_PROVIDER_CHOICES
+    from .models import GLOBAL_LANGUAGES, COMMON_TIMEZONES, AI_PROVIDER_CHOICES, AI_MODE_CHOICES
     categories = Category.objects.filter(Q(user=None) | Q(user=request.user))
     context = {
         'profile': profile,
@@ -1180,6 +1203,7 @@ def settings_view(request):
         'global_languages': GLOBAL_LANGUAGES,
         'common_timezones': COMMON_TIMEZONES,
         'ai_provider_choices': AI_PROVIDER_CHOICES,
+        'ai_mode_choices': AI_MODE_CHOICES,
         'categories': categories,
     }
     return render(request, 'tracker/settings.html', context)
