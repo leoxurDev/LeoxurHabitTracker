@@ -598,6 +598,8 @@ ACTION INSTRUCTIONS:
 Return ONLY valid JSON.
 """
 
+        user_agent = 'HabitTracker/2.5.0 (Apple iOS Theme; Leoxur Inc.)'
+
         # 1. Google Gemini Provider
         if provider == 'gemini':
             payload_data = {
@@ -611,7 +613,12 @@ Return ONLY valid JSON.
                 if m in seen: continue
                 seen.add(m)
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
-                req = urllib.request.Request(url, data=json.dumps(payload_data).encode('utf-8'), headers={'Content-Type': 'application/json'}, method='POST')
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload_data).encode('utf-8'),
+                    headers={'Content-Type': 'application/json', 'User-Agent': user_agent},
+                    method='POST'
+                )
                 try:
                     with urllib.request.urlopen(req, timeout=9) as response:
                         result = json.loads(response.read().decode('utf-8'))
@@ -637,25 +644,48 @@ Return ONLY valid JSON.
                 base = (endpoint or 'http://localhost:11434/v1').rstrip('/')
                 api_url = f"{base}/chat/completions"
 
-            headers = {'Content-Type': 'application/json'}
+            headers = {
+                'Content-Type': 'application/json',
+                'User-Agent': user_agent
+            }
             if api_key:
                 headers['Authorization'] = f'Bearer {api_key}'
 
-            req_body = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_text}
-                ],
-                "temperature": 0.1,
-                "response_format": {"type": "json_object"}
-            }
-            req = urllib.request.Request(api_url, data=json.dumps(req_body).encode('utf-8'), headers=headers, method='POST')
-            with urllib.request.urlopen(req, timeout=12) as response:
-                result = json.loads(response.read().decode('utf-8'))
-                raw_text = result['choices'][0]['message']['content']
-                data = self._clean_json_response(raw_text)
-                return self._apply_cloud_action(data)
+            # Build candidates list (especially for Groq where available models vary per key)
+            candidates = [model]
+            if provider == 'groq':
+                for fb in ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'allam-2-7b', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant']:
+                    if fb not in candidates:
+                        candidates.append(fb)
+
+            last_err = None
+            for candidate_model in candidates:
+                req_body = {
+                    "model": candidate_model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_text}
+                    ],
+                    "temperature": 0.1,
+                    "response_format": {"type": "json_object"}
+                }
+                req = urllib.request.Request(api_url, data=json.dumps(req_body).encode('utf-8'), headers=headers, method='POST')
+                try:
+                    with urllib.request.urlopen(req, timeout=12) as response:
+                        result = json.loads(response.read().decode('utf-8'))
+                        raw_text = result['choices'][0]['message']['content']
+                        data = self._clean_json_response(raw_text)
+                        if candidate_model != model and self.profile:
+                            self.profile.ai_model = candidate_model
+                            self.profile.save(update_fields=['ai_model'])
+                        return self._apply_cloud_action(data)
+                except urllib.error.HTTPError as e:
+                    last_err = e
+                    if e.code in (404, 400) and provider == 'groq':
+                        continue
+                    raise
+            if last_err:
+                raise last_err
 
         # 3. Anthropic Claude
         elif provider == 'anthropic':

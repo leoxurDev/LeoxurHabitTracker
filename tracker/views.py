@@ -1210,11 +1210,12 @@ def api_test_ai_connection(request):
             'message': f'Please enter an API Key for {provider.upper()}. Check the Free Key Guide below!'
         }, status=400)
 
+    user_agent = 'HabitTracker/2.5.0 (Apple iOS Theme; Leoxur Inc.)'
     try:
         if provider == 'gemini':
             # Check Google Gemini
             url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
-            req = urllib.request.Request(url, headers={'Content-Type': 'application/json'})
+            req = urllib.request.Request(url, headers={'Content-Type': 'application/json', 'User-Agent': user_agent})
             with urllib.request.urlopen(req, timeout=9) as resp:
                 res_data = json.loads(resp.read().decode('utf-8'))
                 models = [m.get('name', '').replace('models/', '') for m in res_data.get('models', []) if 'generateContent' in m.get('supportedGenerationMethods', [])]
@@ -1231,23 +1232,52 @@ def api_test_ai_connection(request):
         elif provider == 'groq':
             # Check Groq Cloud (100% Free Ultra-Fast Tier)
             url = "https://api.groq.com/openai/v1/models"
-            req = urllib.request.Request(url, headers={'Authorization': f'Bearer {api_key}'})
+            req = urllib.request.Request(url, headers={
+                'Authorization': f'Bearer {api_key}',
+                'User-Agent': user_agent
+            })
             with urllib.request.urlopen(req, timeout=9) as resp:
                 res_data = json.loads(resp.read().decode('utf-8'))
-                models = [m.get('id', '') for m in res_data.get('data', [])]
+                raw_models = [m.get('id', '') for m in res_data.get('data', [])]
+                # Filter to chat-capable models (exclude whisper audio and guard models)
+                chat_models = [m for m in raw_models if not any(x in m.lower() for x in ['whisper', 'guard', 'orpheus', 'tts', 'audio'])]
+                
+                # Verify chat model candidates
+                recommended = None
+                candidates = []
+                if target_model and target_model in chat_models:
+                    candidates.append(target_model)
+                candidates.extend(['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'allam-2-7b', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant'])
+                for m in chat_models:
+                    if m not in candidates:
+                        candidates.append(m)
+
+                for cand in candidates:
+                    if cand in chat_models:
+                        recommended = cand
+                        break
+
+                if not recommended and chat_models:
+                    recommended = chat_models[0]
+                elif not recommended:
+                    recommended = 'openai/gpt-oss-20b'
+
                 return JsonResponse({
                     'status': 'success',
                     'provider': 'Groq Cloud',
                     'is_free_tier': True,
-                    'message': 'Connected to Groq Cloud Ultra-Fast inference! 100% free tier verified.',
-                    'models': models,
-                    'recommended_model': 'llama-3.3-70b-versatile'
+                    'message': f'Connected to Groq Cloud Ultra-Fast inference! 100% free tier verified ({len(chat_models)} active chat models).',
+                    'models': chat_models or raw_models,
+                    'recommended_model': recommended
                 })
 
         elif provider == 'openai':
             # Check OpenAI
             url = "https://api.openai.com/v1/models"
-            req = urllib.request.Request(url, headers={'Authorization': f'Bearer {api_key}'})
+            req = urllib.request.Request(url, headers={
+                'Authorization': f'Bearer {api_key}',
+                'User-Agent': user_agent
+            })
             with urllib.request.urlopen(req, timeout=9) as resp:
                 res_data = json.loads(resp.read().decode('utf-8'))
                 models = [m.get('id', '') for m in res_data.get('data', []) if any(k in m.get('id', '') for k in ['gpt-4', 'gpt-3.5'])]
@@ -1275,7 +1305,8 @@ def api_test_ai_connection(request):
                 headers={
                     'x-api-key': api_key,
                     'anthropic-version': '2023-06-01',
-                    'content-type': 'application/json'
+                    'content-type': 'application/json',
+                    'User-Agent': user_agent
                 },
                 method='POST'
             )
@@ -1291,7 +1322,10 @@ def api_test_ai_connection(request):
 
         elif provider == 'openrouter':
             url = "https://openrouter.ai/api/v1/models"
-            req = urllib.request.Request(url, headers={'Authorization': f'Bearer {api_key}'})
+            req = urllib.request.Request(url, headers={
+                'Authorization': f'Bearer {api_key}',
+                'User-Agent': user_agent
+            })
             with urllib.request.urlopen(req, timeout=9) as resp:
                 res_data = json.loads(resp.read().decode('utf-8'))
                 all_models = [m.get('id', '') for m in res_data.get('data', [])]
@@ -1308,7 +1342,7 @@ def api_test_ai_connection(request):
         elif provider == 'custom':
             endpoint = (custom_endpoint or 'http://localhost:11434/v1').rstrip('/')
             url = f"{endpoint}/models"
-            headers = {}
+            headers = {'User-Agent': user_agent}
             if api_key:
                 headers['Authorization'] = f'Bearer {api_key}'
             req = urllib.request.Request(url, headers=headers)

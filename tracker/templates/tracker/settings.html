@@ -735,9 +735,11 @@
         feedback.innerHTML = `🟢 <strong>${data.provider} Verified!</strong> ${data.message} ${modelChipsHtml}`;
         showiOSToast(`${data.provider} Connected!`, '✓');
 
-        // Auto-fill recommended model if empty
-        if (modelInput && !modelInput.value && data.recommended_model) {
-          modelInput.value = data.recommended_model;
+        // Auto-fill recommended model if empty or not in discovered models
+        if (modelInput && (!modelInput.value || (data.models && data.models.length > 0 && !data.models.includes(modelInput.value)))) {
+          if (data.recommended_model) {
+            modelInput.value = data.recommended_model;
+          }
         }
 
         // Update top status badge
