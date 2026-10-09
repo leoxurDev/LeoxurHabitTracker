@@ -21,6 +21,52 @@ UNIT_CHOICES = [
 ]
 
 
+GLOBAL_LANGUAGES = [
+    ('en', 'English (US / UK)'),
+    ('es', 'Español (Spanish)'),
+    ('fr', 'Français (French)'),
+    ('de', 'Deutsch (German)'),
+    ('it', 'Italiano (Italian)'),
+    ('pt', 'Português (Portuguese)'),
+    ('ru', 'Русский (Russian)'),
+    ('zh-hans', '简体中文 (Chinese Simplified)'),
+    ('zh-hant', '繁體中文 (Chinese Traditional)'),
+    ('ja', '日本語 (Japanese)'),
+    ('ko', '한국어 (Korean)'),
+    ('ar', 'العربية (Arabic)'),
+    ('hi', 'हिन्दी (Hindi)'),
+    ('ta', 'தமிழ் (Tamil)'),
+    ('te', 'తెలుగు (Telugu)'),
+    ('bn', 'বাংলা (Bengali)'),
+    ('mr', 'मराठी (Marathi)'),
+    ('ur', 'اردو (Urdu)'),
+    ('gu', 'ગુજરાતી (Gujarati)'),
+    ('kn', 'ಕನ್ನಡ (Kannada)'),
+    ('ml', 'മലയാളം (Malayalam)'),
+    ('pa', 'ਪੰਜਾਬੀ (Punjabi)'),
+    ('tr', 'Türkçe (Turkish)'),
+    ('vi', 'Tiếng Việt (Vietnamese)'),
+    ('th', 'ไทย (Thai)'),
+    ('id', 'Bahasa Indonesia (Indonesian)'),
+    ('ms', 'Bahasa Melayu (Malay)'),
+    ('nl', 'Nederlands (Dutch)'),
+    ('pl', 'Polski (Polish)'),
+    ('sv', 'Svenska (Swedish)'),
+    ('el', 'Ελληνικά (Greek)'),
+    ('he', 'עברית (Hebrew)'),
+    ('uk', 'Українська (Ukrainian)'),
+    ('cs', 'Čeština (Czech)'),
+    ('ro', 'Română (Romanian)'),
+    ('hu', 'Magyar (Hungarian)'),
+    ('da', 'Dansk (Danish)'),
+    ('fi', 'Suomi (Finnish)'),
+    ('no', 'Norsk (Norwegian)'),
+    ('fil', 'Filipino / Tagalog'),
+    ('sw', 'Kiswahili (Swahili)'),
+    ('fa', 'فارسی (Persian)'),
+]
+
+
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     primary_goal = models.CharField(max_length=50, choices=GOAL_CHOICES, default='focus')
@@ -33,12 +79,16 @@ class UserProfile(models.Model):
     theme = models.CharField(max_length=20, default='system', choices=[('light', 'Light'), ('dark', 'Dark'), ('system', 'Auto/System')])
     avatar_color = models.CharField(max_length=20, default='#007AFF')
     gemini_api_key = models.CharField(max_length=255, blank=True, default='')
+    language = models.CharField(max_length=20, default='en', choices=GLOBAL_LANGUAGES)
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
 
     def get_goal_display_text(self):
         return dict(GOAL_CHOICES).get(self.primary_goal, 'Productivity & Growth')
+
+    def get_language_display_text(self):
+        return dict(GLOBAL_LANGUAGES).get(self.language, 'English (US / UK)')
 
 
 class Category(models.Model):

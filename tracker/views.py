@@ -1138,6 +1138,7 @@ def settings_view(request):
             profile.bio_motto = request.POST.get('bio_motto', profile.bio_motto).strip()
             profile.theme = request.POST.get('theme', profile.theme)
             profile.avatar_color = request.POST.get('avatar_color', profile.avatar_color)
+            profile.language = request.POST.get('language', profile.language)
             profile.notifications_enabled = 'notifications_enabled' in request.POST
             profile.save()
 
@@ -1152,14 +1153,26 @@ def settings_view(request):
             messages.success(request, 'Preferences have been updated!')
             return redirect('settings')
 
+    from .models import GLOBAL_LANGUAGES
     categories = Category.objects.filter(Q(user=None) | Q(user=request.user))
     context = {
         'profile': profile,
         'smtp_settings': smtp_settings,
         'goal_choices': GOAL_CHOICES,
+        'global_languages': GLOBAL_LANGUAGES,
         'categories': categories,
     }
     return render(request, 'tracker/settings.html', context)
+
+
+@login_required
+def download_user_guide_pdf(request):
+    """Download executive PDF User & Deployment Guide by Leoxur Inc."""
+    from .user_guide_pdf import build_user_guide_pdf
+    pdf_bytes = build_user_guide_pdf()
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="Habit_Tracker_User_Guide_Leoxur_Inc.pdf"'
+    return response
 
 
 @login_required

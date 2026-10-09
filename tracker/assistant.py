@@ -193,6 +193,27 @@ class HabitIntelligence:
                     'payload': {'primary_goal': new_goal}
                 }
 
+        # Language Modification Command
+        lang_match = re.search(r'(?:change|switch|set)\s+(?:app\s+)?language\s+(?:to\s+)?([A-Za-z\s]+)', text)
+        if lang_match and ('target' not in text and 'goal' not in text and 'theme' not in text):
+            target_lang_str = lang_match.group(1).strip().lower()
+            from .models import GLOBAL_LANGUAGES
+            matched_code = None
+            matched_name = None
+            for code, name in GLOBAL_LANGUAGES:
+                if target_lang_str == code.lower() or target_lang_str in name.lower() or name.lower().startswith(target_lang_str):
+                    matched_code = code
+                    matched_name = name
+                    break
+            if matched_code and self.profile:
+                self.profile.language = matched_code
+                self.profile.save(update_fields=['language'])
+                return {
+                    'reply': f"🌐 **Language Switched to {matched_name}!**\n\nHabit Intelligence is now communicating in **{matched_name}**.",
+                    'action_type': 'update_profile',
+                    'payload': {'language': matched_code}
+                }
+
         # 7. PRIORITY: Action: Clear / Delete / Remove Hourly Log
         # If user expresses ANY removal intent, NEVER allow it to fall through to log activity!
         del_keywords = ['remove', 'delete', 'clear', 'erase', 'cancel', 'wipe', 'drop', 'trash']
@@ -463,16 +484,21 @@ You possess COMPLETE and EXCLUSIVE knowledge about this application and its feat
 Current Time: {timezone.localtime().strftime('%I:%M %p')}, Hour Slot: {now_h}
 Today's Date: {today.strftime('%Y-%m-%d')}
 User Profile: Goal={self.profile.primary_goal if self.profile else 'focus'}, Daily Target={self.profile.daily_target_hours if self.profile else 8.0}h
+Preferred Language: {self.profile.get_language_display_text() if self.profile else 'English'} (code: {self.profile.language if self.profile else 'en'})
 Categories available: {', '.join(categories)}
 
 CURRENT LOGGED ACTIVITIES TODAY:
 {schedule_context}
 
+=== MANDATORY LANGUAGE REQUIREMENT ===
+You MUST speak, explain, and respond fluently in the user's selected preferred language: **{self.profile.get_language_display_text() if self.profile else 'English'}**.
+Every word in the "reply" string must be translated idiomatically and naturally into **{self.profile.get_language_display_text() if self.profile else 'English'}**, maintaining polite, helpful executive Apple-style tone with emojis and markdown. The JSON keys and action_type must remain in English as specified.
+
 === ACTION PROTOCOL (STRICT JSON RESPONSE) ===
 You must ALWAYS respond with a valid JSON object matching this schema:
 {{
   "thought": "Reasoning about user intent",
-  "reply": "Concise, friendly Apple-style markdown response with emojis and clear details",
+  "reply": "Concise, friendly Apple-style markdown response in the user's preferred language with emojis and clear details",
   "action_type": "log_activity | delete_activity | switch_view | change_theme | control_timer | filter_schedule | update_profile | set_reminder | navigate | general | guide",
   "payload": {{ ... }}
 }}
@@ -488,6 +514,8 @@ ACTION INSTRUCTIONS:
   action_type = "switch_view", payload: {{"view": "grid" or "list"}}
 - If user wants dark or light mode:
   action_type = "change_theme", payload: {{"theme": "dark" or "light"}}
+- If user wants to change language:
+  action_type = "update_profile", payload: {{"language": "<code, e.g. es, fr, hi, de, etc.>"}}
 - If user wants stopwatch/timer:
   action_type = "control_timer", payload: {{"action": "start" or "stop" or "reset"}}
 - If user wants to filter:
@@ -497,6 +525,7 @@ ACTION INSTRUCTIONS:
 - If user wants a reminder:
   action_type = "set_reminder", payload: {{"time": "HH:MM", "title": "<task>"}}
 - If user asks questions about application features or guidance:
+  action_type = "guide", payload: {{}}
   action_type = "guide", payload: {{}}
 
 Return ONLY valid JSON.
@@ -602,6 +631,8 @@ Return ONLY valid JSON.
                         pass
                 if 'primary_goal' in payload:
                     self.profile.primary_goal = payload['primary_goal']
+                if 'language' in payload:
+                    self.profile.language = payload['language']
                 self.profile.save()
 
         elif action_type == 'set_reminder':

@@ -49,6 +49,18 @@
       </nav>
 
       <div class="nav-actions">
+        <!-- Live System Clock (iPad/Tablet & Browser Screens Only: hidden on mobile) -->
+        <div id="topBarLiveClock" class="topbar-live-clock" title="System Time">
+          <span class="live-clock-dot"></span>
+          <span id="topBarClockText">--:--:--</span>
+        </div>
+
+        <!-- Version Pill & Help Trigger (Engineered by Leoxur Inc.) -->
+        <button id="versionHelpBtn" class="version-help-badge" type="button" title="Version v2.4.0 • Enterprise Help & Guide by Leoxur Inc." aria-label="Version Help Guide">
+          <span class="version-text">v2.4.0</span>
+          <span class="version-qmark" aria-hidden="true">?</span>
+        </button>
+
         <!-- Habit Intelligence Trigger -->
         <button id="topBarAiBtn" class="ios-toolbar-btn apple-ai-toolbar-btn" type="button" title="Habit Intelligence" aria-label="Habit Intelligence">
           {% sf_icon "apple_intelligence" "sf-icon-sm" %}
@@ -79,6 +91,10 @@
                 <span class="popover-name">{{ user.username }}</span>
                 <span class="popover-subtitle">{{ user.profile.get_primary_goal_display|default:"Daily Focus" }}</span>
               </div>
+            </div>
+            <div class="popover-lang-badge" style="padding: 6px 12px; margin: 0 4px 6px 4px; border-radius: 8px; background: var(--bg-subtle); display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+              <span style="color: var(--text-secondary);">Language</span>
+              <span style="font-weight: 600; color: var(--apple-blue);">{{ user.profile.get_language_display_text|default:"English" }}</span>
             </div>
             <div class="popover-menu-list">
               <a href="{% url 'dashboard' %}" class="popover-menu-item">
@@ -338,6 +354,189 @@
     </div>
   </div>
   {% endif %}
+
+  <!-- Executive Version & User Guide Modal (Engineered by Leoxur Inc.) -->
+  <div id="versionHelpModal" class="ios-modal-backdrop" aria-hidden="true">
+    <div class="ios-modal-card version-guide-modal-card">
+      <div class="modal-drag-indicator"></div>
+      
+      <!-- Modal Header -->
+      <div class="modal-header version-guide-header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="version-logo-badge">
+            {% sf_icon "clock" "sf-icon-md" %}
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h3 class="modal-title" style="margin: 0; font-size: 18px; font-weight: 700;">Habit Tracker Enterprise</h3>
+              <span class="version-tag-pill">v2.4.0 Production</span>
+            </div>
+            <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
+              Engineered, Crafted & Certified by <strong>Leoxur Inc.</strong>
+            </p>
+          </div>
+        </div>
+        <button type="button" onclick="closeVersionHelpModal()" class="ios-icon-btn" aria-label="Close Guide">
+          {% sf_icon "xmark" "sf-icon-sm" %}
+        </button>
+      </div>
+
+      <!-- Quick PDF Download Banner Card -->
+      <div class="version-download-banner">
+        <div class="version-download-info">
+          <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">
+            Official User Guide & Deployment Manual (PDF)
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary);">
+            Includes full post-deployment checklists, Gemini AI config, SMTP setup, CSV format, and architecture diagrams.
+          </div>
+        </div>
+        <a href="{% url 'download_user_guide_pdf' %}" class="ios-btn-primary version-pdf-download-btn" download="Habit_Tracker_User_Guide_Leoxur_Inc.pdf">
+          {% sf_icon "arrow_down" "sf-icon-xs" %}
+          <span>Download User Guide (PDF)</span>
+        </a>
+      </div>
+
+      <!-- Interactive Guide Tabs -->
+      <div class="version-tabs-bar">
+        <button type="button" class="version-tab-btn active" data-tab="tabSetup">Post-Deployment Setup</button>
+        <button type="button" class="version-tab-btn" data-tab="tabFeatures">System Architecture</button>
+        <button type="button" class="version-tab-btn" data-tab="tabAI">AI & 42+ Languages</button>
+        <button type="button" class="version-tab-btn" data-tab="tabCSV">CSV Data Schema</button>
+      </div>
+
+      <!-- Tab Content 1: Post-Deployment Setup -->
+      <div id="tabSetup" class="version-tab-panel active">
+        <div class="guide-step-card">
+          <div class="guide-step-num">1</div>
+          <div class="guide-step-content">
+            <h4>Database Migrations & Virtualenv Initialization</h4>
+            <p>Ensure all database tables and new language fields are cleanly migrated:</p>
+            <pre class="guide-code-block"><code>python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python manage.py migrate</code></pre>
+          </div>
+        </div>
+
+        <div class="guide-step-card">
+          <div class="guide-step-num">2</div>
+          <div class="guide-step-content">
+            <h4>Google Gemini Cloud AI Configuration</h4>
+            <p>To enable <strong>Habit Intelligence</strong> autonomous cloud multimodal intelligence:</p>
+            <ul class="guide-checklist">
+              <li>Navigate to <strong>Google AI Studio</strong> (aistudio.google.com) and create an API Key.</li>
+              <li>Open <strong>Settings</strong> in this application &rarr; scroll to <strong>Habit Intelligence & Gemini AI</strong>.</li>
+              <li>Paste your key (starts with <code>AQ...</code> or <code>AIza...</code>) and click <strong>Save & Test Connection</strong>.</li>
+              <li>The badge will switch to <span style="color: var(--apple-green); font-weight: 600;">● Gemini 3.5 Cloud Connected</span>.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="guide-step-card">
+          <div class="guide-step-num">3</div>
+          <div class="guide-step-content">
+            <h4>Automated SMTP Daily Email Setup</h4>
+            <p>Configure outgoing email delivery for automated 24-hour summary reports:</p>
+            <pre class="guide-code-block"><code>Host: smtp.gmail.com   Port: 587 (TLS Enabled)
+User: your-account@gmail.com
+Pass: 16-character Google App Password (not login password)</code></pre>
+          </div>
+        </div>
+
+        <div class="guide-step-card">
+          <div class="guide-step-num">4</div>
+          <div class="guide-step-content">
+            <h4>Production Web Server & Static Files</h4>
+            <pre class="guide-code-block"><code>python manage.py collectstatic --noinput
+gunicorn habit_project.wsgi:application --bind 0.0.0.0:8000 --workers 3</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content 2: System Architecture -->
+      <div id="tabFeatures" class="version-tab-panel">
+        <div class="feature-spec-grid">
+          <div class="feature-spec-item">
+            <div class="feature-spec-title">24-Hour Life Matrix</div>
+            <p>24 chronological slots (00:00 to 23:00) with instantaneous toggle between <strong>Grid Squircle View</strong> and <strong>Chronological List View</strong>.</p>
+          </div>
+          <div class="feature-spec-item">
+            <div class="feature-spec-title">Proportional Dynamic Glow Fill</div>
+            <p>Exact seconds, minutes, and hours calculate precision highlight widths: 3600s fills 100%, 1800s fills 50% with glowing divider accent, and multiple activities render proportional segmented slices.</p>
+          </div>
+          <div class="feature-spec-item">
+            <div class="feature-spec-title">Multi-Hour Activity Spanning</div>
+            <p>Activities spanning multiple consecutive hours automatically project across target hour blocks with an Apple pill badge while retaining exact mathematical total hours without duplication.</p>
+          </div>
+          <div class="feature-spec-item">
+            <div class="feature-spec-title">Live Focus Stopwatch</div>
+            <p>Top-bar live ticking focus timer. Backed by browser <code>localStorage</code>, persists across reloads, and commits directly into the active hour slot on click.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content 3: AI & 42+ Languages -->
+      <div id="tabAI" class="version-tab-panel">
+        <div style="margin-bottom: 14px;">
+          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 6px;">Global Multilingual AI Engine</h4>
+          <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+            The application supports <strong>42 major world languages</strong> (English, Spanish, French, German, Japanese, Chinese, Hindi, Arabic, Russian, Portuguese, Italian, Korean, and 30+ more). When you change your language in Settings, <strong>Habit Intelligence</strong> immediately adapts and conducts all conversations and task orchestrations in that language!
+          </p>
+        </div>
+
+        <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Interactive Natural Language Commands:</h4>
+        <div class="guide-cmd-list">
+          <div class="guide-cmd-row"><code>"Log 2 hours of Deep Work at 10 AM"</code><span>Adds multi-hour activity spanning 10:00–12:00</span></div>
+          <div class="guide-cmd-row"><code>"Switch to List View"</code><span>Toggles 24-Hour timeline layout</span></div>
+          <div class="guide-cmd-row"><code>"Change language to Spanish"</code><span>Switches system & AI language dynamically</span></div>
+          <div class="guide-cmd-row"><code>"Clear hour 14"</code><span>Safely deletes logs for that hour slot</span></div>
+          <div class="guide-cmd-row"><code>"Set daily target to 9 hours"</code><span>Re-calibrates Apple Activity Rings</span></div>
+          <div class="guide-cmd-row"><code>"Remind me at 9 PM to review habits"</code><span>Schedules native chime reminder</span></div>
+          <div class="guide-cmd-row"><code>"Email my daily status report"</code><span>Dispatches formatted SMTP email</span></div>
+        </div>
+      </div>
+
+      <!-- Tab Content 4: CSV Data Schema -->
+      <div id="tabCSV" class="version-tab-panel">
+        <div style="margin-bottom: 12px;">
+          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 6px;">Bulk Spreadsheet Ingestion Schema</h4>
+          <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+            Import your full monthly or yearly habits in one click. Download the template next to the dashboard date navigator:
+          </p>
+        </div>
+        <table class="guide-csv-table">
+          <thead>
+            <tr>
+              <th>Column Header</th>
+              <th>Format</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Date</code></td><td>YYYY-MM-DD</td><td>Log date (e.g. 2026-10-10)</td></tr>
+            <tr><td><code>Hour</code></td><td>0 to 23</td><td>Starting hour slot (00:00 to 23:00)</td></tr>
+            <tr><td><code>Activity Title</code></td><td>String</td><td>Name of task or routine</td></tr>
+            <tr><td><code>Category</code></td><td>String</td><td>Matches configured habit categories</td></tr>
+            <tr><td><code>Duration</code></td><td>Float/Int</td><td>Numeric duration quantity</td></tr>
+            <tr><td><code>Unit</code></td><td>hours|minutes|seconds</td><td>Scale of duration</td></tr>
+            <tr><td><code>Energy Level</code></td><td>1 to 5</td><td>Energy rating (1 lowest, 5 peak)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="version-guide-footer">
+        <div style="font-size: 11.5px; color: var(--text-tertiary);">
+          Release: Enterprise Edition v2.4.0 • Built with precision by <strong>Leoxur Inc.</strong>
+        </div>
+        <button type="button" onclick="closeVersionHelpModal()" class="ios-btn-secondary" style="height: 32px; padding: 0 16px; font-size: 12.5px;">
+          Done
+        </button>
+      </div>
+
+    </div>
+  </div>
 
   <!-- Toast Notification -->
   <div id="iosToast" class="ios-toast"></div>

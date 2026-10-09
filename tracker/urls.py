@@ -35,4 +35,7 @@ urlpatterns = [
 
     # Gemini AI Testing API
     path('api/gemini/test/', views.api_test_gemini, name='api_test_gemini'),
+
+    # User Guide Download (Leoxur Inc.)
+    path('help/user-guide/download/', views.download_user_guide_pdf, name='download_user_guide_pdf'),
 ]

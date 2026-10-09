@@ -1002,6 +1002,8 @@ function initAccountMenu() {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initAccountMenu();
+  initTopBarLiveClock();
+  initVersionHelpModal();
 
   const isAuthenticated = !!document.getElementById('currentDateStr') || !!document.querySelector('.ios-nav');
   if (isAuthenticated) {
@@ -1041,9 +1043,90 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshQuoteBtn.addEventListener('click', fetchNewQuote);
   }
 
+  // Escape key closes modals
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeVersionHelpModal();
+      if (typeof closeLogModal === 'function') closeLogModal();
+    }
+  });
+
   // Trigger Apple fluid post-log animation if an activity was just logged or cleared
   runApplePostLogAnimation();
 });
+
+// --- Top Bar Live Digital Clock (iPad / Tablet & Desktop Screens) ---
+function initTopBarLiveClock() {
+  const clockEl = document.getElementById('topBarClockText');
+  if (!clockEl) return;
+
+  function updateClock() {
+    const now = new Date();
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    clockEl.textContent = `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
+  }
+
+  updateClock();
+  setInterval(updateClock, 1000);
+}
+
+// --- Version & Executive Help Modal (Engineered by Leoxur Inc.) ---
+function initVersionHelpModal() {
+  const btn = document.getElementById('versionHelpBtn');
+  const modal = document.getElementById('versionHelpModal');
+  if (!btn || !modal) return;
+
+  btn.addEventListener('click', () => {
+    openVersionHelpModal();
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      closeVersionHelpModal();
+    }
+  });
+
+  const tabBtns = modal.querySelectorAll('.version-tab-btn');
+  tabBtns.forEach(tabBtn => {
+    tabBtn.addEventListener('click', () => {
+      const targetId = tabBtn.dataset.tab;
+      tabBtns.forEach(b => b.classList.remove('active'));
+      tabBtn.classList.add('active');
+
+      modal.querySelectorAll('.version-tab-panel').forEach(panel => {
+        panel.classList.remove('active');
+      });
+      const activePanel = document.getElementById(targetId);
+      if (activePanel) activePanel.classList.add('active');
+    });
+  });
+}
+
+function openVersionHelpModal() {
+  const modal = document.getElementById('versionHelpModal');
+  if (modal) {
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeVersionHelpModal() {
+  const modal = document.getElementById('versionHelpModal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+}
+
+window.openVersionHelpModal = openVersionHelpModal;
+window.closeVersionHelpModal = closeVersionHelpModal;
 
 // --- Apple Post-Log Fluid Animation Runner ---
 function runApplePostLogAnimation() {

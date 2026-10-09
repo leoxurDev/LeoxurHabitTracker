@@ -63,6 +63,18 @@
         </select>
       </div>
 
+      <div class="ios-form-group">
+        <label class="ios-label">Global Language (AI & App Adaptation)</label>
+        <select name="language" class="ios-select" id="appLanguageSelect">
+          {% for code, name in global_languages %}
+          <option value="{{ code }}" {% if profile.language == code %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+          Habit Intelligence adapts dynamically to communicate fluently in your selected language across all major world languages.
+        </p>
+      </div>
+
       <div style="margin: 18px 0;">
         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px;">
           <input type="checkbox" name="notifications_enabled" {% if profile.notifications_enabled %}checked{% endif %} style="width: 16px; height: 16px; accent-color: var(--apple-blue);">

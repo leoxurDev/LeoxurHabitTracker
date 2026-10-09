@@ -2407,3 +2407,411 @@ body {
     opacity: 0;
   }
 }
+
+/* ==========================================================================
+   TOP BAR LIVE CLOCK (TABLET, IPAD & DESKTOP SCREENS ONLY)
+   Hidden on mobile devices (< 641px), visible with live ticking digits
+   ========================================================================== */
+.topbar-live-clock {
+  display: none; /* strictly hidden on mobile devices */
+}
+
+@media (min-width: 641px) {
+  .topbar-live-clock {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 33px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    border: 0.5px solid var(--border-hairline);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    color: var(--text-secondary);
+    user-select: none;
+    transition: all var(--duration-fast) var(--ease-apple);
+  }
+
+  .topbar-live-clock:hover {
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+    background: var(--bg-elevated);
+  }
+
+  .live-clock-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--apple-green);
+    box-shadow: 0 0 6px rgba(52, 199, 89, 0.6);
+    animation: liveClockPulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes liveClockPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+/* ==========================================================================
+   VERSION BADGE & EXECUTIVE HELP TRIGGER (BY LEOXUR INC.)
+   ========================================================================== */
+.version-help-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 33px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  border: 0.5px solid var(--border-hairline);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: -0.01em;
+  transition: all var(--duration-fast) var(--ease-apple);
+  user-select: none;
+}
+
+.version-help-badge:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: rgba(0, 113, 227, 0.4);
+  transform: translateY(-0.5px);
+  box-shadow: 0 2px 8px rgba(0, 113, 227, 0.12);
+}
+
+.version-help-badge:active {
+  transform: scale(0.96);
+}
+
+.version-text {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.version-qmark {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(0, 113, 227, 0.14);
+  color: var(--apple-blue);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ==========================================================================
+   EXECUTIVE USER GUIDE & POST-DEPLOYMENT MODAL (LEOXUR INC.)
+   ========================================================================== */
+.version-guide-modal-card {
+  max-width: 740px !important;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0 !important;
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+}
+
+.version-guide-header {
+  padding: 20px 24px 16px 24px;
+  border-bottom: 0.5px solid var(--border-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.version-logo-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0071E3 0%, #5E5CE6 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 113, 227, 0.35);
+}
+
+.version-tag-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(52, 199, 89, 0.15);
+  color: var(--apple-green);
+  letter-spacing: -0.01em;
+}
+
+.version-download-banner {
+  padding: 16px 24px;
+  background: linear-gradient(90deg, rgba(0, 113, 227, 0.08) 0%, rgba(94, 92, 230, 0.05) 100%);
+  border-bottom: 0.5px solid var(--border-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.version-pdf-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.version-tabs-bar {
+  display: flex;
+  gap: 6px;
+  padding: 12px 24px 0 24px;
+  background: var(--bg-card);
+  border-bottom: 0.5px solid var(--border-hairline);
+  overflow-x: auto;
+}
+
+.version-tab-btn {
+  background: none;
+  border: none;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all var(--duration-fast) var(--ease-apple);
+  white-space: nowrap;
+}
+
+.version-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.version-tab-btn.active {
+  color: var(--apple-blue);
+  border-bottom-color: var(--apple-blue);
+}
+
+.version-tab-panel {
+  display: none;
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.version-tab-panel.active {
+  display: block;
+}
+
+.guide-step-card {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-hairline);
+}
+
+.guide-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--apple-blue);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.guide-step-content {
+  flex: 1;
+}
+
+.guide-step-content h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.guide-step-content p {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
+.guide-code-block {
+  background: rgba(0, 0, 0, 0.45);
+  color: #30D158;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .guide-code-block {
+  background: #1C1C1E;
+  color: #34C759;
+}
+
+.guide-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.guide-checklist li {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  padding: 4px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.guide-checklist li::before {
+  content: "✓";
+  color: var(--apple-green);
+  font-weight: 700;
+}
+
+.feature-spec-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .feature-spec-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.feature-spec-item {
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-hairline);
+}
+
+.feature-spec-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.feature-spec-item p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.guide-cmd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guide-cmd-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-hairline);
+  font-size: 12px;
+}
+
+.guide-cmd-row code {
+  font-family: ui-monospace, Menlo, Monaco, monospace;
+  color: var(--apple-blue);
+  font-weight: 600;
+}
+
+.guide-cmd-row span {
+  color: var(--text-secondary);
+}
+
+.guide-csv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: var(--bg-card);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 0.5px solid var(--border-hairline);
+}
+
+.guide-csv-table th {
+  background: var(--bg-subtle);
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.guide-csv-table td {
+  padding: 8px 12px;
+  border-bottom: 0.5px solid var(--border-hairline);
+  color: var(--text-secondary);
+}
+
+.guide-csv-table tr:last-child td {
+  border-bottom: none;
+}
+
+.version-guide-footer {
+  padding: 12px 24px;
+  background: var(--bg-card);
+  border-top: 0.5px solid var(--border-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ==========================================================================
+   PRODUCTION THEME GAP REFINEMENTS
+   ========================================================================== */
+.ios-card {
+  transition: transform var(--duration-fast) var(--ease-apple), box-shadow var(--duration-fast) var(--ease-apple);
+}
+
+[data-theme="dark"] .ios-input,
+[data-theme="dark"] .ios-select,
+[data-theme="dark"] .ios-textarea {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="light"] .ios-card {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
