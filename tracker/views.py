@@ -627,7 +627,8 @@ def api_chat(request):
         'reply': response_data['reply'],
         'action_type': response_data.get('action_type'),
         'payload': response_data.get('payload', {}),
-        'timestamp': timezone.localtime().strftime('%I:%M %p')
+        'timestamp': timezone.localtime().strftime('%I:%M %p'),
+        'ai_status': request.user.profile.get_ai_status_display()
     })
 
 

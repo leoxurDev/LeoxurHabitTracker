@@ -783,6 +783,16 @@ class AIAssistant {
         this.appendBubble(data.reply, 'assistant');
         iOSAudio.playChime('success');
 
+        if (data.ai_status) {
+          const badge = document.getElementById('chatbotModelBadge');
+          const badgeText = document.getElementById('chatbotModelBadgeText');
+          if (badgeText) badgeText.textContent = data.ai_status.badge_text;
+          if (badge) {
+            badge.title = `Active Model: ${data.ai_status.model} (${data.ai_status.provider})`;
+            badge.className = data.ai_status.is_online ? 'ai-status-pill online' : 'ai-status-pill offline';
+          }
+        }
+
         if (data.action_type) {
           this.executeAction(data.action_type, data.payload || {}, data.reply);
         }

@@ -2,14 +2,17 @@
 {% load apple_icons %}
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>{% block title %}Habit — 24-Hour Time Canvas{% endblock %}</title>
-  <meta name="description" content="Minimalist 24-hour habit and activity tracker. Intentional living, precision logging, and daily focus.">
+  <meta name="description"
+    content="Minimalist 24-hour habit and activity tracker. Intentional living, precision logging, and daily focus.">
   <link rel="stylesheet" href="{% static 'css/ios_theme.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
+
 <body>
   <!-- Ambient background lighting -->
   <div class="ambient-bg" aria-hidden="true">
@@ -34,15 +37,18 @@
       </div>
 
       <nav class="nav-center-links" aria-label="Primary Navigation">
-        <a href="{% url 'dashboard' %}" class="nav-segment-btn {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <a href="{% url 'dashboard' %}"
+          class="nav-segment-btn {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
           {% sf_icon "clock" "sf-icon-xs" %}
           <span>Today</span>
         </a>
-        <a href="{% url 'analytics' %}" class="nav-segment-btn {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
+        <a href="{% url 'analytics' %}"
+          class="nav-segment-btn {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
           {% sf_icon "analytics" "sf-icon-xs" %}
           <span>Analytics</span>
         </a>
-        <a href="{% url 'settings' %}" class="nav-segment-btn {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+        <a href="{% url 'settings' %}"
+          class="nav-segment-btn {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
           {% sf_icon "gear" "sf-icon-xs" %}
           <span>Settings</span>
         </a>
@@ -50,30 +56,36 @@
 
       <div class="nav-actions">
         <!-- Live System Clock (iPad/Tablet & Browser Screens Only: hidden on mobile) -->
-        <div id="topBarLiveClock" class="topbar-live-clock" title="System Time ({{ user.profile.timezone|default:'UTC' }})" data-user-tz="{{ user.profile.timezone|default:'UTC' }}">
+        <div id="topBarLiveClock" class="topbar-live-clock"
+          title="System Time ({{ user.profile.timezone|default:'UTC' }})"
+          data-user-tz="{{ user.profile.timezone|default:'UTC' }}">
           <span class="live-clock-dot"></span>
           <span id="topBarClockText">--:--:--</span>
         </div>
 
         <!-- Version Pill & Help Trigger (Engineered by Leoxur Inc.) -->
-        <button id="versionHelpBtn" class="version-help-badge" type="button" title="Version v2.5.0 • Enterprise Help & Guide by Leoxur Inc." aria-label="Version Help Guide">
+        <button id="versionHelpBtn" class="version-help-badge" type="button"
+          title="Version v2.5.0 • Enterprise Help & Guide by Leoxur Inc." aria-label="Version Help Guide">
           <span class="version-text">v2.5.0</span>
           <span class="version-qmark" aria-hidden="true">?</span>
         </button>
 
         <!-- Habit Intelligence Trigger -->
-        <button id="topBarAiBtn" class="ios-toolbar-btn apple-ai-toolbar-btn" type="button" title="Habit Intelligence" aria-label="Habit Intelligence">
+        <button id="topBarAiBtn" class="ios-toolbar-btn apple-ai-toolbar-btn" type="button" title="Habit Intelligence"
+          aria-label="Habit Intelligence">
           {% sf_icon "apple_intelligence" "sf-icon-sm" %}
         </button>
 
         <!-- Appearance Toggle -->
-        <button id="themeToggleBtn" class="ios-toolbar-btn" type="button" title="Toggle Appearance" aria-label="Toggle Appearance">
+        <button id="themeToggleBtn" class="ios-toolbar-btn" type="button" title="Toggle Appearance"
+          aria-label="Toggle Appearance">
           <span class="theme-icon-slot">{% sf_icon "theme" "sf-icon-sm" %}</span>
         </button>
 
         <!-- Apple Account Profile Menu Capsule -->
         <div class="apple-account-menu-wrapper">
-          <button id="accountMenuBtn" class="apple-account-chip" type="button" aria-haspopup="true" aria-expanded="false" title="Account & Preferences">
+          <button id="accountMenuBtn" class="apple-account-chip" type="button" aria-haspopup="true"
+            aria-expanded="false" title="Account & Preferences">
             <span class="account-avatar-ring" style="background: {{ user.profile.avatar_color|default:'#0071E3' }};">
               {{ user.username|slice:":1"|upper }}
             </span>
@@ -92,13 +104,17 @@
                 <span class="popover-subtitle">{{ user.profile.get_primary_goal_display|default:"Daily Focus" }}</span>
               </div>
             </div>
-            <div class="popover-lang-badge" style="padding: 4px 12px; margin: 0 4px 4px 4px; border-radius: 8px; background: var(--bg-subtle); display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+            <div class="popover-lang-badge"
+              style="padding: 4px 12px; margin: 0 4px 4px 4px; border-radius: 8px; background: var(--bg-subtle); display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
               <span style="color: var(--text-secondary);">Language</span>
-              <span style="font-weight: 600; color: var(--apple-blue);">{{ user.profile.get_language_display_text|default:"English" }}</span>
+              <span style="font-weight: 600; color: var(--apple-blue);">{{
+                user.profile.get_language_display_text|default:"English" }}</span>
             </div>
-            <div class="popover-lang-badge" style="padding: 4px 12px; margin: 0 4px 6px 4px; border-radius: 8px; background: var(--bg-subtle); display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+            <div class="popover-lang-badge"
+              style="padding: 4px 12px; margin: 0 4px 6px 4px; border-radius: 8px; background: var(--bg-subtle); display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
               <span style="color: var(--text-secondary);">Timezone</span>
-              <span style="font-weight: 600; color: var(--apple-green);">{{ user.profile.timezone|default:"UTC" }}</span>
+              <span style="font-weight: 600; color: var(--apple-green);">{{ user.profile.timezone|default:"UTC"
+                }}</span>
             </div>
             <div class="popover-menu-list">
               <a href="{% url 'dashboard' %}" class="popover-menu-item">
@@ -138,14 +154,15 @@
         <div style="display: flex; align-items: center; gap: 10px;">
           <span style="color: {% if message.tags == 'error' %}var(--apple-red){% else %}var(--apple-green){% endif %};">
             {% if message.tags == 'error' %}
-              {% sf_icon "xmark" "sf-icon-sm" %}
+            {% sf_icon "xmark" "sf-icon-sm" %}
             {% else %}
-              {% sf_icon "checkmark" "sf-icon-sm" %}
+            {% sf_icon "checkmark" "sf-icon-sm" %}
             {% endif %}
           </span>
           <span>{{ message }}</span>
         </div>
-        <button onclick="this.parentElement.remove()" style="background: none; border: none; color: var(--text-tertiary); cursor: pointer; padding: 2px 6px; font-size: 12px;">
+        <button onclick="this.parentElement.remove()"
+          style="background: none; border: none; color: var(--text-tertiary); cursor: pointer; padding: 2px 6px; font-size: 12px;">
           {% sf_icon "xmark" "sf-icon-sm" %}
         </button>
       </div>
@@ -162,11 +179,13 @@
   {% if user.is_authenticated %}
   <!-- Mobile Bottom Tab Bar -->
   <div class="ios-tab-bar">
-    <a href="{% url 'dashboard' %}" class="tab-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+    <a href="{% url 'dashboard' %}"
+      class="tab-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
       <span class="tab-icon">{% sf_icon "clock" %}</span>
       <span>Today</span>
     </a>
-    <a href="{% url 'analytics' %}" class="tab-item {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
+    <a href="{% url 'analytics' %}"
+      class="tab-item {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
       <span class="tab-icon">{% sf_icon "analytics" %}</span>
       <span>Trends</span>
     </a>
@@ -174,7 +193,8 @@
       <span class="tab-icon">{% sf_icon "apple_intelligence" %}</span>
       <span>Intelligence</span>
     </button>
-    <a href="{% url 'settings' %}" class="tab-item {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+    <a href="{% url 'settings' %}"
+      class="tab-item {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
       <span class="tab-icon">{% sf_icon "gear" %}</span>
       <span>Settings</span>
     </a>
@@ -182,11 +202,13 @@
 
   <!-- Floating Habit Intelligence Dock Widget -->
   <div id="aiFloatingDock" class="siri-float-dock">
-    <button id="siriFloatBtn" class="siri-float-btn" type="button" title="Habit Intelligence" aria-label="Habit Intelligence">
+    <button id="siriFloatBtn" class="siri-float-btn" type="button" title="Habit Intelligence"
+      aria-label="Habit Intelligence">
       <span class="siri-float-halo" aria-hidden="true"></span>
       {% sf_icon "apple_intelligence" "sf-icon-lg" %}
     </button>
-    <button id="aiDockHideBtn" class="siri-dock-hide-btn" type="button" title="Hide Habit Intelligence Floating Button" aria-label="Hide Floating Button">
+    <button id="aiDockHideBtn" class="siri-dock-hide-btn" type="button" title="Hide Habit Intelligence Floating Button"
+      aria-label="Hide Floating Button">
       {% sf_icon "xmark" "sf-icon-xs" %}
     </button>
   </div>
@@ -207,29 +229,40 @@
         <div>
           <div style="display: flex; align-items: center; gap: 6px;">
             <span>Habit Intelligence</span>
-            {% if user.profile.gemini_api_key %}
-              <span class="ai-status-pill online" title="Powered by Google Gemini Cloud AI" style="font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: rgba(52, 199, 89, 0.15); color: var(--apple-green); display: inline-flex; align-items: center; gap: 4px;">
-                <span style="width: 5px; height: 5px; border-radius: 50%; background: var(--apple-green); display: inline-block;"></span>
-                Gemini 3.5 Active
-              </span>
+            {% with ai_status=user.profile.get_ai_status_display %}
+            {% if ai_status.is_online %}
+            <span class="ai-status-pill online" id="chatbotModelBadge"
+              title="Active Model: {{ ai_status.model }} ({{ ai_status.provider }})"
+              style="font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: rgba(52, 199, 89, 0.15); color: var(--apple-green); display: inline-flex; align-items: center; gap: 4px;">
+              <span
+                style="width: 5px; height: 5px; border-radius: 50%; background: var(--apple-green); display: inline-block;"></span>
+              <span id="chatbotModelBadgeText">{{ ai_status.badge_text }}</span>
+            </span>
             {% else %}
-              <span class="ai-status-pill offline" title="Built-in Local Autonomous Engine" style="font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 999px; background: rgba(0, 122, 255, 0.12); color: var(--apple-blue); display: inline-flex; align-items: center; gap: 4px;">
-                <span style="width: 5px; height: 5px; border-radius: 50%; background: var(--apple-blue); display: inline-block;"></span>
-                Local Engine
-              </span>
+            <span class="ai-status-pill offline" id="chatbotModelBadge" title="Built-in Local Autonomous Engine"
+              style="font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 999px; background: rgba(0, 122, 255, 0.12); color: var(--apple-blue); display: inline-flex; align-items: center; gap: 4px;">
+              <span
+                style="width: 5px; height: 5px; border-radius: 50%; background: var(--apple-blue); display: inline-block;"></span>
+              <span id="chatbotModelBadgeText">Local Engine</span>
+            </span>
             {% endif %}
+            {% endwith %}
           </div>
-          <div style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">Autonomous Time & Habit Orchestrator</div>
+          <div style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">Autonomous Time & Habit
+            Orchestrator</div>
         </div>
       </div>
       <div class="assistant-window-controls">
-        <button id="assistantMinimizeBtn" class="ios-icon-btn assistant-control-btn" type="button" title="Minimize Drawer" aria-label="Minimize">
+        <button id="assistantMinimizeBtn" class="ios-icon-btn assistant-control-btn" type="button"
+          title="Minimize Drawer" aria-label="Minimize">
           {% sf_icon "minus" "sf-icon-xs" %}
         </button>
-        <button id="assistantMaximizeBtn" class="ios-icon-btn assistant-control-btn" type="button" title="Maximize Window" aria-label="Maximize">
+        <button id="assistantMaximizeBtn" class="ios-icon-btn assistant-control-btn" type="button"
+          title="Maximize Window" aria-label="Maximize">
           {% sf_icon "arrow_up_right" "sf-icon-xs" %}
         </button>
-        <button id="assistantCloseBtn" class="ios-icon-btn assistant-control-btn" type="button" title="Close" aria-label="Close">
+        <button id="assistantCloseBtn" class="ios-icon-btn assistant-control-btn" type="button" title="Close"
+          aria-label="Close">
           {% sf_icon "xmark" "sf-icon-xs" %}
         </button>
       </div>
@@ -237,7 +270,9 @@
 
     <div class="assistant-messages" id="assistantMessages">
       <div class="msg-bubble msg-assistant">
-        Hello {{ user.first_name|default:user.username }}. I am **Habit Intelligence** — your autonomous habit and time companion. You can ask me to log activities, clear hours, switch views, set targets, or control anything in this app for you. What would you like to do?
+        Hello {{ user.first_name|default:user.username }}. I am **Habit Intelligence** — your autonomous habit and time
+        companion. You can ask me to log activities, clear hours, switch views, set targets, or control anything in this
+        app for you. What would you like to do?
       </div>
       {% for msg in chat_history %}
       <div class="msg-bubble msg-{{ msg.sender }}">
@@ -257,7 +292,8 @@
     </div>
 
     <div class="assistant-input-box">
-      <input type="text" id="assistantInput" class="assistant-input" placeholder="Ask Habit Intelligence to log, schedule, switch view..." autocomplete="off">
+      <input type="text" id="assistantInput" class="assistant-input"
+        placeholder="Ask Habit Intelligence to log, schedule, switch view..." autocomplete="off">
       <button id="assistantSendBtn" class="send-btn" aria-label="Send Message">↑</button>
     </div>
   </div>
@@ -281,13 +317,15 @@
         <div id="modalActivityTabsContainer" style="display: none; margin-bottom: 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <label class="ios-label" style="margin-bottom: 0;">Activities in this Slot</label>
-            <span id="modalActivitiesCounter" style="font-size: 11px; color: var(--apple-blue); font-weight: 500;"></span>
+            <span id="modalActivitiesCounter"
+              style="font-size: 11px; color: var(--apple-blue); font-weight: 500;"></span>
           </div>
           <div id="modalActivityTabs" class="modal-activity-segmented-tabs"></div>
         </div>
 
         <!-- Spanned Activity Notice Banner -->
-        <div id="modalSpannedNotice" style="display: none; background: rgba(0, 113, 227, 0.08); border: 1px solid rgba(0, 113, 227, 0.2); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 14px; font-size: 12px; color: var(--apple-blue); align-items: center; gap: 8px;">
+        <div id="modalSpannedNotice"
+          style="display: none; background: rgba(0, 113, 227, 0.08); border: 1px solid rgba(0, 113, 227, 0.2); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 14px; font-size: 12px; color: var(--apple-blue); align-items: center; gap: 8px;">
           {% sf_icon "clock" "sf-icon-xs" %}
           <span id="modalSpannedNoticeText">Ongoing activity spanning across hours</span>
         </div>
@@ -295,7 +333,8 @@
         <!-- Activity Name -->
         <div class="ios-form-group">
           <label class="ios-label">Activity Title</label>
-          <input type="text" id="modalTitleInput" class="ios-input" placeholder="e.g. Deep Work, Morning Workout, Reading" required>
+          <input type="text" id="modalTitleInput" class="ios-input"
+            placeholder="e.g. Deep Work, Morning Workout, Reading" required>
         </div>
 
         <!-- Unit Selector -->
@@ -342,7 +381,8 @@
         <!-- Notes -->
         <div class="ios-form-group">
           <label class="ios-label">Notes</label>
-          <textarea id="modalNotesInput" class="ios-textarea" rows="2" placeholder="Key outcomes or focus reflections..."></textarea>
+          <textarea id="modalNotesInput" class="ios-textarea" rows="2"
+            placeholder="Key outcomes or focus reflections..."></textarea>
         </div>
 
         <!-- Action Buttons -->
@@ -350,7 +390,8 @@
           <button type="submit" id="modalSubmitBtn" class="ios-btn-primary" style="flex: 2; height: 42px;">
             Save
           </button>
-          <button type="button" id="modalDeleteBtn" onclick="deleteActivityLog()" class="ios-btn-secondary" style="flex: 1; height: 42px; color: var(--apple-red); display: none;">
+          <button type="button" id="modalDeleteBtn" onclick="deleteActivityLog()" class="ios-btn-secondary"
+            style="flex: 1; height: 42px; color: var(--apple-red); display: none;">
             Delete
           </button>
         </div>
@@ -363,7 +404,7 @@
   <div id="versionHelpModal" class="ios-modal-backdrop" aria-hidden="true">
     <div class="ios-modal-card version-guide-modal-card">
       <div class="modal-drag-indicator"></div>
-      
+
       <!-- Modal Header -->
       <div class="modal-header version-guide-header">
         <div style="display: flex; align-items: center; gap: 12px;">
@@ -372,7 +413,8 @@
           </div>
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <h3 class="modal-title" style="margin: 0; font-size: 18px; font-weight: 700;">Habit Tracker Enterprise</h3>
+              <h3 class="modal-title" style="margin: 0; font-size: 18px; font-weight: 700;">Habit Tracker Enterprise
+              </h3>
               <span class="version-tag-pill">v2.5.0 Production</span>
             </div>
             <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
@@ -392,10 +434,12 @@
             Official User Guide & Deployment Manual (PDF)
           </div>
           <div style="font-size: 12px; color: var(--text-secondary);">
-            Includes full post-deployment checklists, Gemini AI config, SMTP setup, CSV format, and architecture diagrams.
+            Includes full post-deployment checklists, Gemini AI config, SMTP setup, CSV format, and architecture
+            diagrams.
           </div>
         </div>
-        <a href="{% url 'download_user_guide_pdf' %}" class="ios-btn-primary version-pdf-download-btn" download="Habit_Tracker_User_Guide_Leoxur_Inc.pdf">
+        <a href="{% url 'download_user_guide_pdf' %}" class="ios-btn-primary version-pdf-download-btn"
+          download="Habit_Tracker_User_Guide_Leoxur_Inc.pdf">
           {% sf_icon "arrow_down" "sf-icon-xs" %}
           <span>Download User Guide (PDF)</span>
         </a>
@@ -429,10 +473,14 @@ python manage.py migrate</code></pre>
             <h4>Multi-Model AI Configuration (100% Free Tiers Available)</h4>
             <p>To enable <strong>Habit Intelligence</strong> autonomous cloud multimodal intelligence:</p>
             <ul class="guide-checklist">
-              <li><strong>Google Gemini (Free):</strong> Get free key at <code>aistudio.google.com</code>. Supports gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash.</li>
-              <li><strong>Groq Cloud (100% Free):</strong> Get ultra-fast key at <code>console.groq.com</code> (14,400 free requests/day with Llama 3.3 70B).</li>
-              <li><strong>OpenAI / Claude / OpenRouter / Ollama:</strong> Also natively supported with custom deployment model fields.</li>
-              <li>In <strong>Settings</strong>, select provider, enter key, and click <strong>⚡ Test Connection & Auto-Detect</strong>.</li>
+              <li><strong>Google Gemini (Free):</strong> Get free key at <code>aistudio.google.com</code>. Supports
+                gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash.</li>
+              <li><strong>Groq Cloud (100% Free):</strong> Get ultra-fast key at <code>console.groq.com</code> (14,400
+                free requests/day with Llama 3.3 70B).</li>
+              <li><strong>OpenAI / Claude / OpenRouter / Ollama:</strong> Also natively supported with custom deployment
+                model fields.</li>
+              <li>In <strong>Settings</strong>, select provider, enter key, and click <strong>⚡ Test Connection &
+                  Auto-Detect</strong>.</li>
             </ul>
           </div>
         </div>
@@ -463,19 +511,23 @@ gunicorn habit_project.wsgi:application --bind 0.0.0.0:8000 --workers 3</code></
         <div class="feature-spec-grid">
           <div class="feature-spec-item">
             <div class="feature-spec-title">24-Hour Life Matrix</div>
-            <p>24 chronological slots (00:00 to 23:00) with instantaneous toggle between <strong>Grid Squircle View</strong> and <strong>Chronological List View</strong>.</p>
+            <p>24 chronological slots (00:00 to 23:00) with instantaneous toggle between <strong>Grid Squircle
+                View</strong> and <strong>Chronological List View</strong>.</p>
           </div>
           <div class="feature-spec-item">
             <div class="feature-spec-title">Proportional Dynamic Glow Fill</div>
-            <p>Exact seconds, minutes, and hours calculate precision highlight widths: 3600s fills 100%, 1800s fills 50% with glowing divider accent, and multiple activities render proportional segmented slices.</p>
+            <p>Exact seconds, minutes, and hours calculate precision highlight widths: 3600s fills 100%, 1800s fills 50%
+              with glowing divider accent, and multiple activities render proportional segmented slices.</p>
           </div>
           <div class="feature-spec-item">
             <div class="feature-spec-title">Multi-Hour Activity Spanning</div>
-            <p>Activities spanning multiple consecutive hours automatically project across target hour blocks with an Apple pill badge while retaining exact mathematical total hours without duplication.</p>
+            <p>Activities spanning multiple consecutive hours automatically project across target hour blocks with an
+              Apple pill badge while retaining exact mathematical total hours without duplication.</p>
           </div>
           <div class="feature-spec-item">
             <div class="feature-spec-title">Live Focus Stopwatch</div>
-            <p>Top-bar live ticking focus timer. Backed by browser <code>localStorage</code>, persists across reloads, and commits directly into the active hour slot on click.</p>
+            <p>Top-bar live ticking focus timer. Backed by browser <code>localStorage</code>, persists across reloads,
+              and commits directly into the active hour slot on click.</p>
           </div>
         </div>
       </div>
@@ -485,19 +537,29 @@ gunicorn habit_project.wsgi:application --bind 0.0.0.0:8000 --workers 3</code></
         <div style="margin-bottom: 14px;">
           <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 6px;">Global Multilingual AI Engine</h4>
           <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
-            The application supports <strong>42 major world languages</strong> (English, Spanish, French, German, Japanese, Chinese, Hindi, Arabic, Russian, Portuguese, Italian, Korean, and 30+ more). When you change your language in Settings, <strong>Habit Intelligence</strong> immediately adapts and conducts all conversations and task orchestrations in that language!
+            The application supports <strong>42 major world languages</strong> (Tamil, English, Spanish, French, German,
+            Japanese, Chinese, Arabic, Russian, Portuguese, Italian, Korean, and 30+ more). When you change your
+            language in Settings, <strong>Habit Intelligence</strong> immediately adapts and conducts all conversations
+            and task orchestrations in that language!
           </p>
         </div>
 
         <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Interactive Natural Language Commands:</h4>
         <div class="guide-cmd-list">
-          <div class="guide-cmd-row"><code>"Log 2 hours of Deep Work at 10 AM"</code><span>Adds multi-hour activity spanning 10:00–12:00</span></div>
-          <div class="guide-cmd-row"><code>"Switch to List View"</code><span>Toggles 24-Hour timeline layout</span></div>
-          <div class="guide-cmd-row"><code>"Change language to Spanish"</code><span>Switches system & AI language dynamically</span></div>
-          <div class="guide-cmd-row"><code>"Clear hour 14"</code><span>Safely deletes logs for that hour slot</span></div>
-          <div class="guide-cmd-row"><code>"Set daily target to 9 hours"</code><span>Re-calibrates Apple Activity Rings</span></div>
-          <div class="guide-cmd-row"><code>"Remind me at 9 PM to review habits"</code><span>Schedules native chime reminder</span></div>
-          <div class="guide-cmd-row"><code>"Email my daily status report"</code><span>Dispatches formatted SMTP email</span></div>
+          <div class="guide-cmd-row"><code>"Log 2 hours of Deep Work at 10 AM"</code><span>Adds multi-hour activity
+              spanning 10:00–12:00</span></div>
+          <div class="guide-cmd-row"><code>"Switch to List View"</code><span>Toggles 24-Hour timeline layout</span>
+          </div>
+          <div class="guide-cmd-row"><code>"Change language to Spanish"</code><span>Switches system & AI language
+              dynamically</span></div>
+          <div class="guide-cmd-row"><code>"Clear hour 14"</code><span>Safely deletes logs for that hour slot</span>
+          </div>
+          <div class="guide-cmd-row"><code>"Set daily target to 9 hours"</code><span>Re-calibrates Apple Activity
+              Rings</span></div>
+          <div class="guide-cmd-row"><code>"Remind me at 9 PM to review habits"</code><span>Schedules native chime
+              reminder</span></div>
+          <div class="guide-cmd-row"><code>"Email my daily status report"</code><span>Dispatches formatted SMTP
+              email</span></div>
         </div>
       </div>
 
@@ -506,7 +568,8 @@ gunicorn habit_project.wsgi:application --bind 0.0.0.0:8000 --workers 3</code></
         <div style="margin-bottom: 12px;">
           <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 6px;">Bulk Spreadsheet Ingestion Schema</h4>
           <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
-            Import your full monthly or yearly habits in one click. Download the template next to the dashboard date navigator:
+            Import your full monthly or yearly habits in one click. Download the template next to the dashboard date
+            navigator:
           </p>
         </div>
         <table class="guide-csv-table">
@@ -518,13 +581,41 @@ gunicorn habit_project.wsgi:application --bind 0.0.0.0:8000 --workers 3</code></
             </tr>
           </thead>
           <tbody>
-            <tr><td><code>Date</code></td><td>YYYY-MM-DD</td><td>Log date (e.g. 2026-10-10)</td></tr>
-            <tr><td><code>Hour</code></td><td>0 to 23</td><td>Starting hour slot (00:00 to 23:00)</td></tr>
-            <tr><td><code>Activity Title</code></td><td>String</td><td>Name of task or routine</td></tr>
-            <tr><td><code>Category</code></td><td>String</td><td>Matches configured habit categories</td></tr>
-            <tr><td><code>Duration</code></td><td>Float/Int</td><td>Numeric duration quantity</td></tr>
-            <tr><td><code>Unit</code></td><td>hours|minutes|seconds</td><td>Scale of duration</td></tr>
-            <tr><td><code>Energy Level</code></td><td>1 to 5</td><td>Energy rating (1 lowest, 5 peak)</td></tr>
+            <tr>
+              <td><code>Date</code></td>
+              <td>YYYY-MM-DD</td>
+              <td>Log date (e.g. 2026-10-10)</td>
+            </tr>
+            <tr>
+              <td><code>Hour</code></td>
+              <td>0 to 23</td>
+              <td>Starting hour slot (00:00 to 23:00)</td>
+            </tr>
+            <tr>
+              <td><code>Activity Title</code></td>
+              <td>String</td>
+              <td>Name of task or routine</td>
+            </tr>
+            <tr>
+              <td><code>Category</code></td>
+              <td>String</td>
+              <td>Matches configured habit categories</td>
+            </tr>
+            <tr>
+              <td><code>Duration</code></td>
+              <td>Float/Int</td>
+              <td>Numeric duration quantity</td>
+            </tr>
+            <tr>
+              <td><code>Unit</code></td>
+              <td>hours|minutes|seconds</td>
+              <td>Scale of duration</td>
+            </tr>
+            <tr>
+              <td><code>Energy Level</code></td>
+              <td>1 to 5</td>
+              <td>Energy rating (1 lowest, 5 peak)</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -534,7 +625,8 @@ gunicorn habit_project.wsgi:application --bind 0.0.0.0:8000 --workers 3</code></
         <div style="font-size: 11.5px; color: var(--text-tertiary);">
           Release: Enterprise Edition v2.5.0 • Built with precision by <strong>Leoxur Inc.</strong>
         </div>
-        <button type="button" onclick="closeVersionHelpModal()" class="ios-btn-secondary" style="height: 32px; padding: 0 16px; font-size: 12.5px;">
+        <button type="button" onclick="closeVersionHelpModal()" class="ios-btn-secondary"
+          style="height: 32px; padding: 0 16px; font-size: 12.5px;">
           Done
         </button>
       </div>
@@ -548,4 +640,5 @@ gunicorn habit_project.wsgi:application --bind 0.0.0.0:8000 --workers 3</code></
   <script src="{% static 'js/tracker_app.js' %}"></script>
   {% block extra_js %}{% endblock %}
 </body>
+
 </html>

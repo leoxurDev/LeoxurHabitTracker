@@ -115,17 +115,19 @@
         </div>
       </div>
       <div id="aiConnectionStatusBadge">
-        {% if profile.get_active_ai_key %}
-        <span class="ai-status-pill online" style="font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: rgba(52, 199, 89, 0.15); color: var(--apple-green); display: inline-flex; align-items: center; gap: 5px;">
-          <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--apple-green); display: inline-block;"></span>
-          {{ profile.get_ai_provider_display }} Connected
-        </span>
-        {% else %}
-        <span class="ai-status-pill offline" style="font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 999px; background: rgba(0, 122, 255, 0.12); color: var(--apple-blue); display: inline-flex; align-items: center; gap: 5px;">
-          <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--apple-blue); display: inline-block;"></span>
-          Local Autonomous Engine
-        </span>
-        {% endif %}
+        {% with ai_status=profile.get_ai_status_display %}
+          {% if ai_status.is_online %}
+          <span class="ai-status-pill online" style="font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: rgba(52, 199, 89, 0.15); color: var(--apple-green); display: inline-flex; align-items: center; gap: 5px;" title="Model: {{ ai_status.model }}">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--apple-green); display: inline-block;"></span>
+            {{ ai_status.badge_text }} Active
+          </span>
+          {% else %}
+          <span class="ai-status-pill offline" style="font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 999px; background: rgba(0, 122, 255, 0.12); color: var(--apple-blue); display: inline-flex; align-items: center; gap: 5px;">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--apple-blue); display: inline-block;"></span>
+            Local Autonomous Engine
+          </span>
+          {% endif %}
+        {% endwith %}
       </div>
     </div>
 

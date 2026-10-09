@@ -169,6 +169,45 @@ class UserProfile(models.Model):
         }
         return defaults.get(self.ai_provider, 'gemini-1.5-flash')
 
+    def get_ai_status_display(self):
+        """Return a descriptive status dictionary for UI badges and headers."""
+        key = self.get_active_ai_key()
+        provider = (self.ai_provider or 'gemini').lower()
+        model = self.get_effective_ai_model()
+
+        if not key and provider != 'custom':
+            return {
+                'is_online': False,
+                'provider': 'Local',
+                'model': 'Rules Engine',
+                'short_model': 'Local',
+                'badge_text': 'Local Engine',
+                'color': 'var(--apple-blue)'
+            }
+
+        provider_names = {
+            'gemini': 'Gemini',
+            'groq': 'Groq',
+            'openai': 'OpenAI',
+            'anthropic': 'Claude',
+            'openrouter': 'OpenRouter',
+            'custom': 'Ollama'
+        }
+        p_name = provider_names.get(provider, provider.title())
+        # Clean up model display name (e.g. 'openai/gpt-oss-20b' -> 'gpt-oss-20b')
+        short_model = model.split('/')[-1].replace(':free', '')
+        if len(short_model) > 16:
+            short_model = short_model[:15] + '…'
+
+        return {
+            'is_online': True,
+            'provider': p_name,
+            'model': model,
+            'short_model': short_model,
+            'badge_text': f"{p_name} • {short_model}",
+            'color': 'var(--apple-green)'
+        }
+
 
 class Category(models.Model):
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='custom_categories')
