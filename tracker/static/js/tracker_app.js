@@ -767,6 +767,40 @@ class AIAssistant {
     this.messagesContainer.appendChild(typingBubble);
     this.scrollToBottom();
 
+    // Gather live telemetry & client context for deep AI awareness
+    let stopwatchSec = 0;
+    let stopwatchFormatted = '00:00:00';
+    if (window.habitTimer && typeof window.habitTimer.seconds === 'number') {
+      stopwatchSec = window.habitTimer.seconds;
+      const h = Math.floor(stopwatchSec / 3600);
+      const m = Math.floor((stopwatchSec % 3600) / 60);
+      const s = stopwatchSec % 60;
+      stopwatchFormatted = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    } else {
+      try {
+        const saved = localStorage.getItem('habit_stopwatch_state');
+        if (saved) {
+          const st = JSON.parse(saved);
+          let s = st.accumulated || 0;
+          if (st.isRunning && st.startTime) {
+            s += Math.floor((Date.now() - st.startTime) / 1000);
+          }
+          stopwatchSec = s;
+          const th = Math.floor(stopwatchSec / 3600);
+          const tm = Math.floor((stopwatchSec % 3600) / 60);
+          const ts = stopwatchSec % 60;
+          stopwatchFormatted = `${th.toString().padStart(2, '0')}:${tm.toString().padStart(2, '0')}:${ts.toString().padStart(2, '0')}`;
+        }
+      } catch (e) {}
+    }
+
+    const clientContext = {
+      stopwatch_seconds: stopwatchSec,
+      stopwatch_formatted: stopwatchFormatted,
+      current_view: localStorage.getItem('habit_schedule_view') || 'grid',
+      current_page: window.location.pathname
+    };
+
     try {
       const res = await fetch('/api/chat/', {
         method: 'POST',
@@ -774,7 +808,10 @@ class AIAssistant {
           'Content-Type': 'application/json',
           'X-CSRFToken': csrftoken
         },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify({
+          message: text,
+          client_context: clientContext
+        })
       });
       const data = await res.json();
       typingBubble.remove();
@@ -858,6 +895,13 @@ class AIAssistant {
         break;
 
       case 'log_activity':
+        if (payload.reset_stopwatch) {
+          if (window.habitTimer && typeof window.habitTimer.reset === 'function') {
+            window.habitTimer.reset();
+          } else {
+            try { localStorage.removeItem('habit_stopwatch_state'); } catch (e) {}
+          }
+        }
         try {
           sessionStorage.setItem('apple_post_log_event', JSON.stringify({
             hour: payload.hour,
@@ -1017,8 +1061,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const isAuthenticated = !!document.getElementById('currentDateStr') || !!document.querySelector('.ios-nav');
   if (isAuthenticated) {
-    new HabitTimer();
-    new AIAssistant();
+    window.habitTimer = new HabitTimer();
+    window.habitAssistant = new AIAssistant();
     new ReminderService();
 
     if ("Notification" in window && Notification.permission === "default") {

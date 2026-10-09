@@ -19,9 +19,107 @@ class HabitIntelligence:
     local deterministic semantic brain that executes every action natively.
     """
 
-    def __init__(self, user):
+    def __init__(self, user, client_context=None):
         self.user = user
         self.profile = getattr(user, 'profile', None)
+        self.client_context = client_context or {}
+
+    def _build_project_analytics(self):
+        """
+        Gather deep analytics across user's logs, categories, trends, target progress,
+        and real-time client telemetry (stopwatch, current view).
+        """
+        import datetime
+        today = timezone.localdate()
+        now = timezone.localtime()
+        now_h = now.hour
+        user_tz = self.profile.timezone if self.profile else 'UTC'
+        target_hours = float(self.profile.daily_target_hours or 8.0) if self.profile else 8.0
+
+        # 1. Today's logs and metrics
+        today_logs = HourlyLog.objects.filter(user=self.user, date=today).select_related('category').order_by('hour')
+        today_total_sec = sum(l.duration_seconds for l in today_logs)
+        today_hours = round(today_total_sec / 3600.0, 2)
+        today_pct = min(100.0, round((today_hours / target_hours) * 100, 1)) if target_hours > 0 else 0.0
+        remaining_hours = max(0.0, round(target_hours - today_hours, 2))
+
+        # 2. Last 7 Days metrics
+        start_7d = today - datetime.timedelta(days=6)
+        week_logs = HourlyLog.objects.filter(user=self.user, date__gte=start_7d, date__lte=today).select_related('category')
+        week_total_sec = sum(l.duration_seconds for l in week_logs)
+        week_total_hours = round(week_total_sec / 3600.0, 1)
+        week_daily_avg = round(week_total_hours / 7.0, 1)
+
+        # Count days target was met in last 7 days
+        days_met_target = 0
+        for i in range(7):
+            d = start_7d + datetime.timedelta(days=i)
+            day_sec = sum(l.duration_seconds for l in week_logs if l.date == d)
+            if round(day_sec / 3600.0, 1) >= target_hours:
+                days_met_target += 1
+
+        # Category distribution over last 7 days
+        cat_counts = {}
+        for l in week_logs:
+            cname = l.category.name if l.category else 'General'
+            cat_counts[cname] = cat_counts.get(cname, 0) + l.duration_seconds
+        
+        cat_breakdown = []
+        for cname, sec in sorted(cat_counts.items(), key=lambda x: x[1], reverse=True):
+            pct = round((sec / max(1, week_total_sec)) * 100, 1)
+            cat_breakdown.append(f"{cname}: {round(sec/3600.0, 1)}h ({pct}%)")
+        cat_breakdown_str = ", ".join(cat_breakdown) if cat_breakdown else "No historical logs this week yet."
+
+        # Hourly rhythm (peak hours)
+        hour_counts = {}
+        for l in week_logs:
+            if 0 <= l.hour <= 23:
+                hour_counts[l.hour] = hour_counts.get(l.hour, 0) + l.duration_seconds
+        top_hours = sorted(hour_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+        top_hours_str = ", ".join([f"{h:02d}:00 ({(sec/3600.0):.1f}h total)" for h, sec in top_hours]) if top_hours else "Evenly distributed"
+
+        # 3. Categories and Reminders
+        all_cats = Category.objects.filter(Q(user=None) | Q(user=self.user))
+        categories_str = ", ".join([f"'{c.name}' ({'Productive' if c.is_productive else 'Rest/Leisure'})" for c in all_cats])
+
+        reminders = Reminder.objects.filter(user=self.user, is_active=True).order_by('time')
+        reminders_str = ", ".join([f"'{r.title}' at {r.time.strftime('%I:%M %p')}" for r in reminders]) if reminders else "None active"
+
+        # 4. Live Client Stopwatch Context
+        stopwatch_sec = int(self.client_context.get('stopwatch_seconds') or 0)
+        stopwatch_formatted = self.client_context.get('stopwatch_formatted') or '00:00:00'
+
+        # Today's hourly schedule breakdown
+        schedule_entries = []
+        for l in today_logs:
+            h_ampm = f"{l.hour % 12 or 12}:00 {'AM' if l.hour < 12 else 'PM'}"
+            schedule_entries.append(f"• Hour {l.hour:02d}:00 ({h_ampm}): '{l.title}' [{l.duration_display}] in '{l.category.name if l.category else 'General'}'")
+        schedule_str = "\n".join(schedule_entries) if schedule_entries else "No activity logged today yet."
+
+        return {
+            'today_str': today.strftime('%Y-%m-%d'),
+            'current_time_str': now.strftime('%I:%M %p (%Z)'),
+            'current_hour': now_h,
+            'user_tz': user_tz,
+            'target_hours': target_hours,
+            'today_hours': today_hours,
+            'today_pct': today_pct,
+            'remaining_hours': remaining_hours,
+            'today_slots_count': len(today_logs),
+            'schedule_str': schedule_str,
+            'week_total_hours': week_total_hours,
+            'week_daily_avg': week_daily_avg,
+            'days_met_target': days_met_target,
+            'cat_breakdown_str': cat_breakdown_str,
+            'top_hours_str': top_hours_str,
+            'categories_str': categories_str,
+            'reminders_str': reminders_str,
+            'stopwatch_sec': stopwatch_sec,
+            'stopwatch_formatted': stopwatch_formatted,
+            'streak': self.profile.streak_count if self.profile else 1,
+            'primary_goal': self.profile.primary_goal if self.profile else 'focus',
+            'motto': self.profile.bio_motto if self.profile else ''
+        }
 
     def get_active_ai_key(self):
         """Retrieve active API key across Gemini, Groq, OpenAI, Claude, OpenRouter, or Custom."""
@@ -61,6 +159,114 @@ class HabitIntelligence:
                     'action_type': 'general',
                     'payload': {'ai_connected': True, 'provider': prov}
                 }
+
+        # 0.01 High Priority: Stopwatch Commit / Logging Intent
+        if 'stopwatch' in text and any(w in text for w in ['log', 'add', 'record', 'save', 'commit', 'as per']):
+            raw_title = ''
+            m_title = re.search(r'stopwatch(?:\s+now)?\s*(?:as\s+(?:a\s+)?|title\s+is\s+|called\s+)(.+)', user_text, re.I)
+            if not m_title:
+                m_title = re.search(r'(?:title\s+is\s+|called\s+)(.+)', user_text, re.I)
+            if m_title:
+                raw_title = m_title.group(1).strip()
+            clean_title = raw_title.strip('"\'').title() if raw_title else 'Deep Focus Session'
+            if clean_title.lower().startswith('a '):
+                clean_title = clean_title[2:].strip().title()
+
+            analytics = self._build_project_analytics()
+            sec = analytics['stopwatch_sec']
+            if sec <= 0:
+                sec = 1800
+                sec_display = "30m 00s (Default session)"
+            else:
+                m = sec // 60
+                s = sec % 60
+                h = m // 60
+                sec_display = f"{h}h {m%60}m {s:02d}s" if h > 0 else f"{m}m {s:02d}s"
+
+            now_h = timezone.localtime().hour
+            cat = None
+            if any(k in clean_title.lower() for k in ['research', 'dev', 'code', 'work', 'study', 'focus', 'deep']):
+                cat = Category.objects.filter(Q(user=None) | Q(user=self.user)).filter(name__icontains='Deep Work').first()
+            if not cat:
+                cat = Category.objects.filter(Q(user=None) | Q(user=self.user)).first()
+
+            HourlyLog.objects.create(
+                user=self.user,
+                date=timezone.localdate(),
+                hour=now_h,
+                title=clean_title,
+                category=cat,
+                duration_seconds=sec,
+                unit_type='seconds',
+                energy_level=5,
+                completed=True
+            )
+            return {
+                'reply': f"⏱️ **Stopwatch Session Logged Accurately!**\n\nRecorded **{clean_title}** ({sec_display}) for Hour {now_h:02d}:00 into **{cat.name if cat else 'General'}**.\n\nYour 24-Hour Matrix, proportional glow fill, and Activity Rings have updated, and the live stopwatch has been reset.",
+                'action_type': 'log_activity',
+                'payload': {
+                    'hour': now_h,
+                    'title': clean_title,
+                    'duration_seconds': sec,
+                    'unit_type': 'seconds',
+                    'category_color': cat.color if cat else '#0071E3',
+                    'reset_stopwatch': True
+                }
+            }
+
+        # 0.02 High Priority: Delete / Remove Hour Slot Intent
+        del_match = re.search(r'(?:delete|remove|clear|erase)\s+(?:entry\s+)?(?:log\s+)?(?:in|at|for|from)?\s*(?:the\s+)?(\d{1,2})(?::00)?\s*(am|pm)?', user_text, re.I)
+        if del_match:
+            raw_h = int(del_match.group(1))
+            meridiem = del_match.group(2)
+            if meridiem:
+                if meridiem.lower() == 'pm' and raw_h < 12:
+                    target_h = raw_h + 12
+                elif meridiem.lower() == 'am' and raw_h == 12:
+                    target_h = 0
+                else:
+                    target_h = raw_h
+            else:
+                target_h = raw_h
+            
+            if 0 <= target_h <= 23:
+                today = timezone.localdate()
+                deleted_count, _ = HourlyLog.objects.filter(user=self.user, date=today, hour=target_h).delete()
+                h_display = f"{target_h % 12 or 12}:00 {'AM' if target_h < 12 else 'PM'}"
+                return {
+                    'reply': f"🗑️ **Entry Removed Successfully**\n\nI have cleared the activity logs for the **{h_display}** ({target_h:02d}:00) hour slot ({deleted_count} log{'s' if deleted_count != 1 else ''} removed). Your 24-Hour Matrix has been updated accordingly.",
+                    'action_type': 'delete_activity',
+                    'payload': {'hour': target_h, 'target_title': None}
+                }
+
+        # 0.03 High Priority: Project & Habit Analysis Intent
+        if any(p in text for p in ['analysis', 'analyze', 'audit', 'performance', 'summary', 'report', 'how am i doing', 'habit review']) and any(w in text for w in ['project', 'entire', 'all', 'habits', 'week', 'data', 'stats', 'performance', 'doing']):
+            analytics = self._build_project_analytics()
+            reply = (
+                f"📊 **Executive Habit & Project Telemetry Audit**\n\n"
+                f"**1. Today's Velocity & Target Progress:**\n"
+                f"• Target: **{analytics['target_hours']}h** | Completed: **{analytics['today_hours']}h** ({analytics['today_pct']}%)\n"
+                f"• Remaining: **{analytics['remaining_hours']}h** needed to hit daily goal\n"
+                f"• Slots Logged Today: **{analytics['today_slots_count']}**\n\n"
+                f"**2. 7-Day Performance & Consistency:**\n"
+                f"• Total Logged: **{analytics['week_total_hours']}h** (Daily Avg: **{analytics['week_daily_avg']}h/day**)\n"
+                f"• Goal Hit Rate: **{analytics['days_met_target']}/7 days** met target\n"
+                f"• Current Streak: **{analytics['streak']} day{'s' if analytics['streak'] != 1 else ''}** 🔥\n\n"
+                f"**3. Category Balance (Last 7 Days):**\n"
+                f"• {analytics['cat_breakdown_str']}\n\n"
+                f"**4. Peak Productivity Windows:**\n"
+                f"• Most active focus blocks: **{analytics['top_hours_str']}**\n\n"
+                f"**5. Live Session State:**\n"
+                f"• Live Stopwatch: **{analytics['stopwatch_formatted']}** ({analytics['stopwatch_sec']}s)\n"
+                f"• System Timezone: **{analytics['user_tz']}** (Local Time: {analytics['current_time_str']})\n\n"
+                f"💡 **Executive Recommendation:**\n"
+                f"To hit your **{analytics['target_hours']}h** daily goal today, schedule your remaining **{analytics['remaining_hours']}h** in your high-energy windows. Use the live stopwatch to time sessions down to the second without cognitive friction!"
+            )
+            return {
+                'reply': reply,
+                'action_type': 'general',
+                'payload': {'analytics': analytics}
+            }
 
         # 0.1 Try calling Cloud AI if API key is configured
         ai_key = self.get_active_ai_key()
@@ -514,29 +720,24 @@ class HabitIntelligence:
         model = self.profile.get_effective_ai_model() if self.profile else 'gemini-1.5-flash'
         endpoint = (self.profile.ai_custom_endpoint if self.profile else '').strip()
 
-        today = timezone.localdate()
-        now_h = timezone.localtime().hour
-        logs = HourlyLog.objects.filter(user=self.user, date=today).order_by('hour')
-        log_summary = [f"Hour {l.hour:02d}:00: '{l.title}' ({l.duration_display}, {l.category.name if l.category else 'General'})" for l in logs]
-        schedule_context = "\n".join(log_summary) if log_summary else "No activities logged today yet."
-        categories = [c.name for c in Category.objects.filter(Q(user=None) | Q(user=self.user))]
-
-        user_tz = self.profile.timezone if self.profile else 'UTC'
+        analytics = self._build_project_analytics()
+        user_tz = analytics['user_tz']
         user_lang = self.profile.get_language_display_text() if self.profile else 'English'
+        now_h = analytics['current_hour']
 
-        system_prompt = f"""You are Habit Intelligence, the autonomous AI companion for an Apple iOS-style executive Habit & Time Tracker application.
-You possess COMPLETE and EXCLUSIVE knowledge about this application and its features:
+        system_prompt = f"""You are Habit Intelligence, the autonomous executive AI companion for an Apple iOS-style Habit & 24-Hour Life Canvas application engineered by Leoxur Inc.
+You possess COMPLETE, REAL-TIME, and EXCLUSIVE knowledge about this application and the user's entire project data:
 
 === COMPREHENSIVE APPLICATION ARCHITECTURE & FEATURES ===
 1. 24-HOUR HOURLY MATRIX:
    - 24 chronological slots from 00:00 to 23:00.
    - Dual-view toggle: 24-Hour Grid View (squircle glass cards) and List View (vertical timeline).
 2. PROPORTIONAL COLOR FILLING ENGINE:
-   - Dynamic highlight filling based on exact duration logged: 3600s = 100% full box, 1800s = 50% half fill, proportional micro-slices for seconds, segmented slices for multi-activities.
+   - Dynamic highlight filling based on exact duration logged: 3600s = 100% full box, 1800s = 50% half fill divider, proportional micro-slices for seconds, segmented slices for multi-activities.
 3. MULTI-HOUR SPANNING SYSTEM:
    - Activities longer than 1 hour automatically project across consecutive hour slots with an Apple pill badge while retaining exact mathematical total hours without double-counting.
 4. PERSISTENT LIVE STOPWATCH:
-   - Live Apple-style focus timer in the top bar synced with localStorage.
+   - Real-time client focus timer synced with localStorage. Live reading: {analytics['stopwatch_formatted']} ({analytics['stopwatch_sec']} seconds on client).
 5. BULK CSV IMPORT & EXPORT:
    - Built-in CSV template, rapid data ingestion.
 6. APPLE ACTIVITY RINGS:
@@ -545,16 +746,19 @@ You possess COMPLETE and EXCLUSIVE knowledge about this application and its feat
    - Current System Timezone: {user_tz}
    - Active AI Provider: {provider.upper()}, Model: {model}
 
-=== CURRENT USER STATE ===
-Current Time: {timezone.localtime().strftime('%I:%M %p (%Z)')}, Hour Slot: {now_h}
-Today's Date: {today.strftime('%Y-%m-%d')}
-Timezone: {user_tz}
-User Profile: Goal={self.profile.primary_goal if self.profile else 'focus'}, Daily Target={self.profile.daily_target_hours if self.profile else 8.0}h
-Preferred Language: {user_lang} (code: {self.profile.language if self.profile else 'en'})
-Categories available: {', '.join(categories)}
-
-CURRENT LOGGED ACTIVITIES TODAY:
-{schedule_context}
+=== REAL-TIME TELEMETRY & PROJECT ANALYTICS ===
+• Current Local Time: {analytics['current_time_str']}, Current Hour Slot: {now_h}
+• Today's Date: {analytics['today_str']} in {user_tz}
+• Live Stopwatch: {analytics['stopwatch_formatted']} ({analytics['stopwatch_sec']} seconds logged on client)
+• Today's Progress: {analytics['today_hours']}h / {analytics['target_hours']}h daily target ({analytics['today_pct']}% completed), {analytics['remaining_hours']}h remaining
+• 7-Day Performance: {analytics['week_total_hours']}h total (Daily avg: {analytics['week_daily_avg']}h/day), Target met on {analytics['days_met_target']}/7 days
+• Active Streak: {analytics['streak']} days 🔥
+• Category Balance (Last 7 Days): {analytics['cat_breakdown_str']}
+• Peak Focus Hours: {analytics['top_hours_str']}
+• Available Categories: {analytics['categories_str']}
+• Active Reminders: {analytics['reminders_str']}
+• Today's Detailed Schedule:
+{analytics['schedule_str']}
 
 === MANDATORY LANGUAGE REQUIREMENT ===
 You MUST speak, explain, and respond fluently in the user's selected preferred language: **{user_lang}**.
@@ -570,30 +774,48 @@ You must ALWAYS respond with a valid JSON object matching this schema:
 }}
 
 ACTION INSTRUCTIONS:
+- CRITICAL - STOPWATCH LOGGING ("log as per the stopwatch", "log current stopwatch as <title>", "record stopwatch time"):
+  action_type = "log_activity"
+  payload = {{
+    "hour": {now_h},
+    "title": "<clean title specified by user, e.g. Deep Research and Development>",
+    "duration_seconds": {analytics['stopwatch_sec'] if analytics['stopwatch_sec'] > 0 else 1800},
+    "unit_type": "seconds",
+    "category_name": "<best matching category, e.g. Deep Work & Career>",
+    "reset_stopwatch": true
+  }}
+  reply = "⏱️ **Stopwatch Session Logged!**\\n\\nRecorded **{analytics['stopwatch_formatted']}** ({analytics['stopwatch_sec']}s) at {now_h:02d}:00 as **<title>** in **<category>**. The 24-Hour Matrix, proportional glow fill, and rings have been updated, and the stopwatch has been reset."
+
+- CRITICAL - DELETION REQUESTS ("delete entry log in the 3 am", "clear 3 am", "delete activity at 3am"):
+  NEVER log an activity when user asks to delete!
+  action_type = "delete_activity"
+  payload = {{"hour": <0-23, e.g. 3 for 3 am>, "target_title": null}}
+  reply = "🗑️ **Entry Removed Successfully**\\n\\nI have cleared the activity logs for the specified hour slot. Your 24-Hour Matrix has been updated accordingly."
+
+- CRITICAL - PROJECT ANALYSIS ("analyze the entire project", "how am I doing", "audit my habits", "summarize my performance", "review my week", "give access to analysis"):
+  action_type = "general"
+  reply = Full executive-level habit & project audit with Today's Progress ({analytics['today_hours']}h / {analytics['target_hours']}h), 7-Day Velocity ({analytics['week_total_hours']}h total, {analytics['week_daily_avg']}h avg), Category Balance ({analytics['cat_breakdown_str']}), Peak Windows ({analytics['top_hours_str']}), and Tactical Recommendations.
+
 - If user confirms API connection (e.g. 'added api', 'is api working', 'check gemini', 'check groq', 'check openai'):
-  action_type = "general", reply = "🟢 **Cloud AI is Live & Working!**\n\nConnected to **{provider.upper()} ({model})** in timezone **{user_tz}**. I have full contextual access to your habit tracker and can execute logs, deletions, view switching, timers, and manage your day."
-- If user wants to delete/remove/clear/erase an activity or hour:
-  CRITICAL: NEVER log an activity! Set action_type = "delete_activity", payload: {{"hour": <0-23 or null>, "target_title": "<activity title or null>"}}
-- If user wants to log/add/record an activity:
-  action_type = "log_activity", payload: {{"hour": <0-23>, "title": "<clean title>", "duration_seconds": <int>, "unit_type": "hours|minutes|seconds", "category_name": "<matching category>"}}
+  action_type = "general", reply = "🟢 **Cloud AI is Live & Working!**\\n\\nConnected to **{provider.upper()} ({model})** in timezone **{user_tz}**. I have full contextual access to your habit tracker and can execute logs, deletions, view switching, timers, and manage your day."
 - If user wants to switch between grid and list views:
-  action_type = "switch_view", payload: {{"view": "grid" or "list"}}
+  action_type = "switch_view", payload = {{"view": "grid" or "list"}}
 - If user wants dark or light mode:
-  action_type = "change_theme", payload: {{"theme": "dark" or "light"}}
+  action_type = "change_theme", payload = {{"theme": "dark" or "light"}}
 - If user wants to change language:
-  action_type = "update_profile", payload: {{"language": "<code, e.g. es, fr, hi, de, etc.>"}}
+  action_type = "update_profile", payload = {{"language": "<code, e.g. es, fr, hi, de, etc.>"}}
 - If user wants to change timezone:
-  action_type = "update_profile", payload: {{"timezone": "<timezone, e.g. Asia/Kolkata, America/New_York, UTC>"}}
+  action_type = "update_profile", payload = {{"timezone": "<timezone, e.g. Asia/Kolkata, America/New_York, UTC>"}}
 - If user wants stopwatch/timer:
-  action_type = "control_timer", payload: {{"action": "start" or "stop" or "reset"}}
+  action_type = "control_timer", payload = {{"action": "start" or "stop" or "reset"}}
 - If user wants to filter:
-  action_type = "filter_schedule", payload: {{"filter": "all" or "productive" or "sleep" or "logged"}}
+  action_type = "filter_schedule", payload = {{"filter": "all" or "productive" or "sleep" or "logged"}}
 - If user wants to update daily target or primary goal:
-  action_type = "update_profile", payload: {{"target_hours": <float> or "primary_goal": "<str>"}}
+  action_type = "update_profile", payload = {{"target_hours": <float> or "primary_goal": "<str>"}}
 - If user wants a reminder:
-  action_type = "set_reminder", payload: {{"time": "HH:MM", "title": "<task>"}}
+  action_type = "set_reminder", payload = {{"time": "HH:MM", "title": "<task>"}}
 - If user asks questions about application features or guidance:
-  action_type = "guide", payload: {{}}
+  action_type = "guide", payload = {{}}
 
 Return ONLY valid JSON.
 """

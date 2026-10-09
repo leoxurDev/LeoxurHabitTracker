@@ -611,7 +611,8 @@ def api_chat(request):
     )
 
     # Process via AI Assistant
-    assistant = HabitAIAssistant(request.user)
+    client_context = data.get('client_context', {})
+    assistant = HabitAIAssistant(request.user, client_context=client_context)
     response_data = assistant.process_message(user_message)
 
     # Save assistant message to DB
