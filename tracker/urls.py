@@ -32,4 +32,7 @@ urlpatterns = [
 
     # SMTP Testing API
     path('api/smtp/test/', views.api_test_smtp, name='api_test_smtp'),
+
+    # Gemini AI Testing API
+    path('api/gemini/test/', views.api_test_gemini, name='api_test_gemini'),
 ]

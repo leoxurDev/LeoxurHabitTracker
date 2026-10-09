@@ -1037,15 +1037,79 @@ def api_test_smtp(request):
 
 
 @login_required
+@require_POST
+def api_test_gemini(request):
+    """Test Google Gemini API key live connection."""
+    import time
+    import urllib.request
+    import urllib.error
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = request.POST
+
+    api_key = data.get('api_key', '').strip()
+    if not api_key:
+        profile = getattr(request.user, 'profile', None)
+        api_key = getattr(profile, 'gemini_api_key', '')
+
+    if not api_key:
+        return JsonResponse({'status': 'error', 'message': 'No API key provided. Please enter a valid Gemini API key.'}, status=400)
+
+    start_t = time.time()
+    candidate_models = ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-2.5-flash']
+    last_err = None
+
+    for model in candidate_models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        payload = {
+            "contents": [{"parts": [{"text": "Hello, respond with OK"}]}],
+            "generationConfig": {"temperature": 0.1}
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'},
+            method='POST'
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                latency = round(time.time() - start_t, 2)
+                return JsonResponse({
+                    'status': 'success',
+                    'model': model,
+                    'latency': f"{latency}s",
+                    'message': f"Connected to Google {model} ({latency}s)!"
+                })
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                last_err = f"Model {model} unavailable, trying next..."
+                continue
+            return JsonResponse({'status': 'error', 'message': f"Google API Error {e.code}: Invalid key or project error."}, status=400)
+        except Exception as e:
+            last_err = str(e)
+
+    return JsonResponse({'status': 'error', 'message': f"Connection Failed: {last_err or 'Timeout'}"}, status=400)
+
+
+@login_required
 def settings_view(request):
-    """User profile, SMTP email host configuration, and habit preferences."""
+    """User profile, SMTP email host configuration, Habit Intelligence AI, and habit preferences."""
     profile = request.user.profile
     smtp_settings, _ = SMTPSettings.objects.get_or_create(user=request.user)
 
     if request.method == 'POST':
         action = request.POST.get('action', 'profile')
 
-        if action == 'smtp':
+        if action == 'ai':
+            # Save Habit Intelligence AI configuration
+            profile.gemini_api_key = request.POST.get('gemini_api_key', '').strip()
+            profile.save(update_fields=['gemini_api_key'])
+            messages.success(request, 'Habit Intelligence & Gemini AI configuration saved successfully!')
+            return redirect('settings')
+
+        elif action == 'smtp':
             # Save SMTP configuration
             smtp_settings.host = request.POST.get('smtp_host', 'smtp.gmail.com').strip()
             try:
@@ -1074,8 +1138,6 @@ def settings_view(request):
             profile.bio_motto = request.POST.get('bio_motto', profile.bio_motto).strip()
             profile.theme = request.POST.get('theme', profile.theme)
             profile.avatar_color = request.POST.get('avatar_color', profile.avatar_color)
-            if 'gemini_api_key' in request.POST:
-                profile.gemini_api_key = request.POST.get('gemini_api_key', '').strip()
             profile.notifications_enabled = 'notifications_enabled' in request.POST
             profile.save()
 

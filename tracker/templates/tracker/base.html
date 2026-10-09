@@ -171,8 +171,14 @@
     </button>
   </div>
 
+  <!-- Habit Intelligence Backdrop (Maximized Focus) -->
+  <div id="assistantBackdrop" class="assistant-backdrop" aria-hidden="true"></div>
+
   <!-- Habit Intelligence Drawer -->
   <div id="assistantPanel" class="assistant-panel" role="dialog" aria-labelledby="assistantTitle">
+    <!-- Sheet Grabber for Mobile (iOS & Android) -->
+    <div class="sheet-grabber-bar" aria-hidden="true"></div>
+
     <div class="assistant-header">
       <div class="assistant-header-title" id="assistantTitle">
         <div class="assistant-ai-badge">
@@ -196,9 +202,17 @@
           <div style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">Autonomous Time & Habit Orchestrator</div>
         </div>
       </div>
-      <button id="assistantCloseBtn" class="ios-icon-btn" style="width: 28px; height: 28px;">
-        {% sf_icon "xmark" "sf-icon-sm" %}
-      </button>
+      <div class="assistant-window-controls">
+        <button id="assistantMinimizeBtn" class="ios-icon-btn assistant-control-btn" type="button" title="Minimize Drawer" aria-label="Minimize">
+          {% sf_icon "minus" "sf-icon-xs" %}
+        </button>
+        <button id="assistantMaximizeBtn" class="ios-icon-btn assistant-control-btn" type="button" title="Maximize Window" aria-label="Maximize">
+          {% sf_icon "arrow_up_right" "sf-icon-xs" %}
+        </button>
+        <button id="assistantCloseBtn" class="ios-icon-btn assistant-control-btn" type="button" title="Close" aria-label="Close">
+          {% sf_icon "xmark" "sf-icon-xs" %}
+        </button>
+      </div>
     </div>
 
     <div class="assistant-messages" id="assistantMessages">

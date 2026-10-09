@@ -63,14 +63,6 @@
         </select>
       </div>
 
-      <div class="ios-form-group">
-        <label class="ios-label">Google Gemini API Key (Optional)</label>
-        <input type="password" name="gemini_api_key" class="ios-input" value="{{ profile.gemini_api_key }}" placeholder="AIzaSy... (Leave empty to use built-in local intelligence)">
-        <span style="font-size: 11.5px; color: var(--text-tertiary); margin-top: 4px; display: block;">
-          Connect Google Gemini 1.5 Flash to power Habit Intelligence with advanced cloud reasoning. Built-in engine runs locally by default.
-        </span>
-      </div>
-
       <div style="margin: 18px 0;">
         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px;">
           <input type="checkbox" name="notifications_enabled" {% if profile.notifications_enabled %}checked{% endif %} style="width: 16px; height: 16px; accent-color: var(--apple-blue);">
@@ -81,6 +73,86 @@
       <button type="submit" class="ios-btn-primary" style="height: 40px; width: 100%;">
         Save Preferences
       </button>
+    </form>
+  </div>
+
+  <!-- Dedicated Habit Intelligence & Gemini AI Configuration Card -->
+  <div class="ios-card" style="border: 1px solid rgba(0, 113, 227, 0.28); background: linear-gradient(180deg, var(--bg-card) 0%, rgba(0, 113, 227, 0.04) 100%);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div class="assistant-ai-badge" style="width: 36px; height: 36px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #0071E3 0%, #AF52DE 100%); box-shadow: 0 4px 14px rgba(0, 113, 227, 0.35);">
+          {% sf_icon "apple_intelligence" "sf-icon-md" %}
+        </div>
+        <div>
+          <h3 style="font-size: 16px; font-weight: 600; margin: 0;">Habit Intelligence & Gemini AI</h3>
+          <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
+            Autonomous cloud intelligence with multimodal reasoning & habit orchestration.
+          </p>
+        </div>
+      </div>
+      <div id="aiConnectionStatusBadge">
+        {% if profile.gemini_api_key %}
+        <span class="ai-status-pill online" style="font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: rgba(52, 199, 89, 0.15); color: var(--apple-green); display: inline-flex; align-items: center; gap: 5px;">
+          <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--apple-green); display: inline-block;"></span>
+          Gemini 3.5 Cloud Connected
+        </span>
+        {% else %}
+        <span class="ai-status-pill offline" style="font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 999px; background: rgba(0, 122, 255, 0.12); color: var(--apple-blue); display: inline-flex; align-items: center; gap: 5px;">
+          <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--apple-blue); display: inline-block;"></span>
+          Local Semantic Engine
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <form method="POST" action="{% url 'settings' %}" id="aiConfigForm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="ai">
+
+      <div class="ios-form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label class="ios-label" style="margin-bottom: 0;">Google Gemini API Key</label>
+          <a href="https://aistudio.google.com/app/api-keys" target="_blank" rel="noopener" style="font-size: 11.5px; color: var(--apple-blue); text-decoration: none; font-weight: 500;">
+            Get Free Key at Google AI Studio ↗
+          </a>
+        </div>
+        <div style="position: relative; display: flex; align-items: center;">
+          <input type="password" id="geminiApiKeyInput" name="gemini_api_key" class="ios-input" value="{{ profile.gemini_api_key }}" placeholder="AIzaSy... or AQ.Ab8..." style="padding-right: 44px; font-family: monospace; font-size: 13px; letter-spacing: 0.03em;">
+          <button type="button" id="toggleApiKeyVisibilityBtn" class="ios-icon-btn" style="position: absolute; right: 6px; width: 30px; height: 30px; border: none; background: transparent; cursor: pointer;" title="Show/Hide Key" onclick="toggleApiKeyVisibility()">
+            {% sf_icon "eye" "sf-icon-xs" %}
+          </button>
+        </div>
+        <span style="font-size: 12px; color: var(--text-tertiary); margin-top: 5px; display: block;">
+          Connects to Google's flagship <strong>Gemini 3.5 Flash Lite</strong> model (sub-second cloud latency). If empty, the local engine handles requests natively.
+        </span>
+      </div>
+
+      <!-- Capabilities Overview Grid -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 16px 0; padding: 12px; border-radius: 14px; background: var(--bg-subtle); border: 1px solid var(--border-hairline);">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary);">
+          <span style="color: var(--apple-green); font-weight: bold;">✓</span> <span>Autonomous Hourly Logging</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary);">
+          <span style="color: var(--apple-green); font-weight: bold;">✓</span> <span>Intelligent Slot Reset & Clear</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary);">
+          <span style="color: var(--apple-green); font-weight: bold;">✓</span> <span>Stopwatch & Timer Control</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary);">
+          <span style="color: var(--apple-green); font-weight: bold;">✓</span> <span>Grid/List & Theme Toggling</span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <button type="submit" class="ios-btn-primary" style="height: 40px; flex: 1; min-width: 180px;">
+          Save AI Configuration
+        </button>
+        <button type="button" id="testGeminiConnectionBtn" class="ios-btn-secondary" style="height: 40px; padding: 0 16px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;" onclick="testGeminiKeyAjax()">
+          <span>Test Connection</span> ⚡
+        </button>
+      </div>
+
+      <div id="geminiTestFeedback" style="display: none; margin-top: 10px; font-size: 12.5px; border-radius: 10px; padding: 10px 14px;"></div>
     </form>
   </div>
 
@@ -401,6 +473,79 @@
       }
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  function toggleApiKeyVisibility() {
+    const input = document.getElementById('geminiApiKeyInput');
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+    } else {
+      input.type = 'password';
+    }
+  }
+
+  async function testGeminiKeyAjax() {
+    const keyInput = document.getElementById('geminiApiKeyInput');
+    const feedback = document.getElementById('geminiTestFeedback');
+    const testBtn = document.getElementById('testGeminiConnectionBtn');
+    const apiKey = keyInput ? keyInput.value.trim() : '';
+
+    if (!apiKey) {
+      feedback.style.display = 'block';
+      feedback.style.background = 'rgba(255, 69, 58, 0.12)';
+      feedback.style.color = 'var(--apple-red)';
+      feedback.style.border = '1px solid rgba(255, 69, 58, 0.25)';
+      feedback.innerHTML = '⚠️ Please enter a Google Gemini API key to test.';
+      return;
+    }
+
+    testBtn.disabled = true;
+    testBtn.innerText = 'Testing... ⏳';
+    feedback.style.display = 'block';
+    feedback.style.background = 'rgba(0, 113, 227, 0.1)';
+    feedback.style.color = 'var(--apple-blue)';
+    feedback.style.border = '1px solid rgba(0, 113, 227, 0.25)';
+    feedback.innerHTML = 'Pinging Google Gemini API...';
+
+    try {
+      const res = await fetch('/api/gemini/test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({ api_key: apiKey })
+      });
+      const data = await res.json();
+      testBtn.disabled = false;
+      testBtn.innerHTML = '<span>Test Connection</span> ⚡';
+
+      if (data.status === 'success') {
+        feedback.style.background = 'rgba(52, 199, 89, 0.12)';
+        feedback.style.color = 'var(--apple-green)';
+        feedback.style.border = '1px solid rgba(52, 199, 89, 0.3)';
+        feedback.innerHTML = `🟢 <strong>Connection Success!</strong> ${data.message} (Latency: ${data.latency})`;
+        showiOSToast('Gemini API Verified!', '✓');
+
+        // Update badge
+        const badge = document.getElementById('aiConnectionStatusBadge');
+        if (badge) {
+          badge.innerHTML = `<span class="ai-status-pill online" style="font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: rgba(52, 199, 89, 0.15); color: var(--apple-green); display: inline-flex; align-items: center; gap: 5px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: var(--apple-green); display: inline-block;"></span> Gemini 3.5 Cloud Connected</span>`;
+        }
+      } else {
+        feedback.style.background = 'rgba(255, 69, 58, 0.12)';
+        feedback.style.color = 'var(--apple-red)';
+        feedback.style.border = '1px solid rgba(255, 69, 58, 0.25)';
+        feedback.innerHTML = `❌ <strong>Connection Failed:</strong> ${data.message}`;
+      }
+    } catch (e) {
+      testBtn.disabled = false;
+      testBtn.innerHTML = '<span>Test Connection</span> ⚡';
+      feedback.style.background = 'rgba(255, 69, 58, 0.12)';
+      feedback.style.color = 'var(--apple-red)';
+      feedback.innerHTML = `❌ Error: ${e.message}`;
     }
   }
 

@@ -593,10 +593,13 @@ async function fetchNewQuote() {
 class AIAssistant {
   constructor() {
     this.panel = document.getElementById('assistantPanel');
+    this.backdrop = document.getElementById('assistantBackdrop');
     this.openBtn = document.getElementById('siriFloatBtn');
     this.topBarAiBtn = document.getElementById('topBarAiBtn');
     this.tabAssistantBtn = document.getElementById('tabAssistantBtn');
     this.closeBtn = document.getElementById('assistantCloseBtn');
+    this.minimizeBtn = document.getElementById('assistantMinimizeBtn');
+    this.maximizeBtn = document.getElementById('assistantMaximizeBtn');
     this.messagesContainer = document.getElementById('assistantMessages');
     this.input = document.getElementById('assistantInput');
     this.sendBtn = document.getElementById('assistantSendBtn');
@@ -614,6 +617,21 @@ class AIAssistant {
     }
     if (this.closeBtn) {
       this.closeBtn.addEventListener('click', () => this.close());
+    }
+    if (this.minimizeBtn) {
+      this.minimizeBtn.addEventListener('click', () => this.minimize());
+    }
+    if (this.maximizeBtn) {
+      this.maximizeBtn.addEventListener('click', () => this.toggleMaximize());
+    }
+    if (this.backdrop) {
+      this.backdrop.addEventListener('click', () => {
+        if (this.panel && this.panel.classList.contains('maximized')) {
+          this.toggleMaximize();
+        } else {
+          this.close();
+        }
+      });
     }
     if (this.sendBtn) {
       this.sendBtn.addEventListener('click', () => this.sendMessage());
@@ -641,7 +659,11 @@ class AIAssistant {
     // ESC key closes assistant
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.panel && this.panel.classList.contains('open')) {
-        this.close();
+        if (this.panel.classList.contains('maximized')) {
+          this.toggleMaximize();
+        } else {
+          this.close();
+        }
       }
     });
 
@@ -660,11 +682,42 @@ class AIAssistant {
     if (this.panel.classList.contains('open')) {
       if (this.input) this.input.focus();
       this.scrollToBottom();
+    } else {
+      if (this.backdrop) this.backdrop.classList.remove('open');
     }
   }
 
+  toggleMaximize() {
+    if (!this.panel) return;
+    const isMax = this.panel.classList.toggle('maximized');
+    if (this.backdrop) {
+      this.backdrop.classList.toggle('open', isMax);
+    }
+    if (this.maximizeBtn) {
+      this.maximizeBtn.setAttribute('title', isMax ? 'Restore Window' : 'Maximize Window');
+      this.maximizeBtn.innerHTML = isMax
+        ? `<svg class="sf-icon sf-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>`
+        : `<svg class="sf-icon sf-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>`;
+    }
+    this.scrollToBottom();
+  }
+
+  minimize() {
+    if (!this.panel) return;
+    if (this.panel.classList.contains('maximized')) {
+      this.toggleMaximize();
+    }
+    this.close();
+    showiOSToast('Minimized to dock', '−');
+  }
+
   close() {
-    if (this.panel) this.panel.classList.remove('open');
+    if (this.panel) {
+      this.panel.classList.remove('open', 'maximized');
+    }
+    if (this.backdrop) {
+      this.backdrop.classList.remove('open');
+    }
   }
 
   scrollToBottom() {
@@ -701,7 +754,16 @@ class AIAssistant {
     const typingBubble = document.createElement('div');
     typingBubble.className = 'msg-bubble msg-assistant';
     typingBubble.id = 'typingBubble';
-    typingBubble.innerHTML = '<em>Thinking...</em>';
+    typingBubble.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">Habit Intelligence</span>
+        <div class="typing-dots">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+      </div>
+    `;
     this.messagesContainer.appendChild(typingBubble);
     this.scrollToBottom();
 
