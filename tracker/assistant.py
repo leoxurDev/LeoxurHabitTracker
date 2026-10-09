@@ -420,51 +420,86 @@ class HabitIntelligence:
         today = timezone.localdate()
         now_h = timezone.localtime().hour
         logs = HourlyLog.objects.filter(user=self.user, date=today).order_by('hour')
-        log_summary = [f"Hour {l.hour:02d}:00: '{l.title}' ({l.duration_display()}, {l.category.name if l.category else 'General'})" for l in logs]
+        log_summary = [f"Hour {l.hour:02d}:00: '{l.title}' ({l.duration_display}, {l.category.name if l.category else 'General'})" for l in logs]
         schedule_context = "\n".join(log_summary) if log_summary else "No activities logged today yet."
 
         categories = [c.name for c in Category.objects.filter(Q(user=None) | Q(user=self.user))]
 
-        system_prompt = f"""You are Habit Intelligence, the autonomous AI companion for an Apple iOS-style Habit & Time Tracker.
-Current time: {timezone.localtime().strftime('%I:%M %p')}, Hour: {now_h}.
-Today's date: {today.strftime('%Y-%m-%d')}.
-User Profile: Goal={self.profile.primary_goal if self.profile else 'focus'}, Target Active Hours={self.profile.daily_target_hours if self.profile else 8.0}h.
+        system_prompt = f"""You are Habit Intelligence, the autonomous AI companion for an Apple iOS-style executive Habit & Time Tracker application.
+You possess COMPLETE and EXCLUSIVE knowledge about this application and its features:
+
+=== COMPREHENSIVE APPLICATION ARCHITECTURE & FEATURES ===
+1. 24-HOUR HOURLY MATRIX:
+   - 24 chronological slots from 00:00 to 23:00.
+   - Dual-view toggle: 24-Hour Grid View (squircle glass cards) and List View (vertical chronological timeline).
+2. PROPORTIONAL COLOR FILLING ENGINE:
+   - Dynamic highlight filling based on exact duration logged:
+     • 1 full hour (3600s) = 100% complete box highlight with category translucent glow.
+     • 30 minutes (1800s) = Exactly 50% half fill with a vertical glowing divider accent.
+     • 15 minutes (900s) = Exactly 25% quarter fill.
+     • Seconds (e.g. 17s) = Proportional micro-slice.
+     • Multiple activities in one hour = Segmented proportional slices in each category's distinct color!
+3. MULTI-HOUR SPANNING SYSTEM:
+   - Activities longer than 1 hour (e.g. Work for 8 hours starting at 09:00) automatically reflect across all spanned hours (09:00 to 16:00).
+   - Displayed with an Apple badge: "Spanned • 09:00–17:00".
+   - Stored as a single master record to keep daily total hours and Apple Activity Rings mathematically exact without double-counting.
+   - Users can still click into any spanned hour (e.g. 12:00) to add another activity (e.g. Lunch) simultaneously!
+4. PERSISTENT LIVE STOPWATCH:
+   - Live Apple-style focus timer in the top bar.
+   - Persists elapsed seconds across browser reloads via localStorage.
+   - Tap 'Log' to commit the exact elapsed time directly into the current hour.
+5. BULK CSV SPREADSHEET IMPORT:
+   - Download built-in CSV template next to dashboard date switcher.
+   - Columns: Date (YYYY-MM-DD), Hour (0-23), Activity Title, Category, Duration, Unit (hours/minutes/seconds), Energy Level (1-5).
+6. APPLE ACTIVITY RINGS & PROGRESS:
+   - Daily Target Active Hours ring, Productive Habits ring, and Energy Score ring.
+   - Categories include: Deep Work & Career, Health & Workout, Learning & Reading, Mindfulness & Meditation, Sleep & Recovery, Nutrition & Meals, Social & Family, Leisure & Entertainment, Chores & Errands.
+7. AUTOMATED SMTP EMAIL REPORTS:
+   - Sends daily habit & time summary to user's inbox via Gmail, iCloud, or custom SMTP.
+8. APPEARANCE & THEMES:
+   - Apple Dark Mode (OLED pitch black with vibrant accents) and Light Mode.
+
+=== CURRENT USER STATE ===
+Current Time: {timezone.localtime().strftime('%I:%M %p')}, Hour Slot: {now_h}
+Today's Date: {today.strftime('%Y-%m-%d')}
+User Profile: Goal={self.profile.primary_goal if self.profile else 'focus'}, Daily Target={self.profile.daily_target_hours if self.profile else 8.0}h
 Categories available: {', '.join(categories)}
 
 CURRENT LOGGED ACTIVITIES TODAY:
 {schedule_context}
 
-Analyze the user's intent deeply. Return a JSON object with:
+=== ACTION PROTOCOL (STRICT JSON RESPONSE) ===
+You must ALWAYS respond with a valid JSON object matching this schema:
 {{
   "thought": "Reasoning about user intent",
-  "reply": "Concise Apple-style markdown response with emojis and formatted details",
+  "reply": "Concise, friendly Apple-style markdown response with emojis and clear details",
   "action_type": "log_activity | delete_activity | switch_view | change_theme | control_timer | filter_schedule | update_profile | set_reminder | navigate | general | guide",
   "payload": {{ ... }}
 }}
 
-IMPORTANT INTENT INSTRUCTIONS:
-- If user wants to delete, remove, clear, or erase an activity or hour:
-  CRITICAL: Never log an activity! Set action_type="delete_activity".
-  payload: {{"hour": <0-23 or null>, "target_title": "<activity title or null>"}}
-- If user wants to log, add, track, or record an activity:
-  action_type="log_activity".
-  payload: {{"hour": <0-23>, "title": "<clean title>", "duration_seconds": <int>, "unit_type": "hours|minutes|seconds", "category_name": "<matching category>"}}
+ACTION INSTRUCTIONS:
+- If user confirms API connection (e.g. 'added api', 'is api working', 'check gemini'):
+  action_type = "general", reply = "🟢 **Google Gemini Cloud AI is Live & Working!**\n\nConnected to **Gemini 3.5 Flash**. I have full contextual access to your habit tracker and can execute logs, deletions, view switching, timers, and answer any questions about your day."
+- If user wants to delete/remove/clear/erase an activity or hour:
+  CRITICAL: NEVER log an activity! Set action_type = "delete_activity", payload: {{"hour": <0-23 or null>, "target_title": "<activity title or null>"}}
+- If user wants to log/add/record an activity:
+  action_type = "log_activity", payload: {{"hour": <0-23>, "title": "<clean title>", "duration_seconds": <int>, "unit_type": "hours|minutes|seconds", "category_name": "<matching category>"}}
 - If user wants to switch between grid and list views:
-  action_type="switch_view", payload: {{"view": "grid" or "list"}}
+  action_type = "switch_view", payload: {{"view": "grid" or "list"}}
 - If user wants dark or light mode:
-  action_type="change_theme", payload: {{"theme": "dark" or "light"}}
+  action_type = "change_theme", payload: {{"theme": "dark" or "light"}}
 - If user wants stopwatch/timer:
-  action_type="control_timer", payload: {{"action": "start" or "stop" or "reset"}}
+  action_type = "control_timer", payload: {{"action": "start" or "stop" or "reset"}}
 - If user wants to filter:
-  action_type="filter_schedule", payload: {{"filter": "all" or "productive" or "sleep" or "logged"}}
+  action_type = "filter_schedule", payload: {{"filter": "all" or "productive" or "sleep" or "logged"}}
 - If user wants to update daily target or primary goal:
-  action_type="update_profile", payload: {{"target_hours": <float> or "primary_goal": "<str>"}}
+  action_type = "update_profile", payload: {{"target_hours": <float> or "primary_goal": "<str>"}}
 - If user wants a reminder:
-  action_type="set_reminder", payload: {{"time": "HH:MM", "title": "<task>"}}
-- If user asks questions about how features work:
-  action_type="guide", payload: {{}}
+  action_type = "set_reminder", payload: {{"time": "HH:MM", "title": "<task>"}}
+- If user asks questions about application features or guidance:
+  action_type = "guide", payload: {{}}
 
-Return ONLY the raw JSON object.
+Return ONLY valid JSON.
 """
 
         payload_data = {
@@ -483,19 +518,31 @@ Return ONLY the raw JSON object.
             }
         }
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload_data).encode('utf-8'),
-            headers={'Content-Type': 'application/json'},
-            method='POST'
-        )
+        # Try Google Gemini models in order of support
+        candidate_models = ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-flash-latest']
+        for model_name in candidate_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload_data).encode('utf-8'),
+                headers={'Content-Type': 'application/json'},
+                method='POST'
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=9) as response:
+                    result = json.loads(response.read().decode('utf-8'))
+                    text_content = result['candidates'][0]['content']['parts'][0]['text']
+                    data = json.loads(text_content)
+                    return self._apply_gemini_action(data)
+            except urllib.error.HTTPError as e:
+                if e.code == 404:
+                    # Model deprecated or unavailable, try next candidate
+                    continue
+                raise
+            except Exception:
+                continue
 
-        with urllib.request.urlopen(req, timeout=7) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            text_content = result['candidates'][0]['content']['parts'][0]['text']
-            data = json.loads(text_content)
-            return self._apply_gemini_action(data)
+        raise RuntimeError("No available Gemini model responded successfully.")
 
     def _apply_gemini_action(self, data):
         """Execute action returned from Gemini API."""

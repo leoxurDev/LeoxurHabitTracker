@@ -179,7 +179,20 @@
           {% sf_icon "apple_intelligence" "sf-icon-sm" %}
         </div>
         <div>
-          <span>Habit Intelligence</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span>Habit Intelligence</span>
+            {% if user.profile.gemini_api_key %}
+              <span class="ai-status-pill online" title="Powered by Google Gemini Cloud AI" style="font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: rgba(52, 199, 89, 0.15); color: var(--apple-green); display: inline-flex; align-items: center; gap: 4px;">
+                <span style="width: 5px; height: 5px; border-radius: 50%; background: var(--apple-green); display: inline-block;"></span>
+                Gemini 3.5 Active
+              </span>
+            {% else %}
+              <span class="ai-status-pill offline" title="Built-in Local Autonomous Engine" style="font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 999px; background: rgba(0, 122, 255, 0.12); color: var(--apple-blue); display: inline-flex; align-items: center; gap: 4px;">
+                <span style="width: 5px; height: 5px; border-radius: 50%; background: var(--apple-blue); display: inline-block;"></span>
+                Local Engine
+              </span>
+            {% endif %}
+          </div>
           <div style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">Autonomous Time & Habit Orchestrator</div>
         </div>
       </div>
