@@ -121,7 +121,7 @@ def build_user_guide_pdf():
     header_table = Table([
         [
             Paragraph("<b>HABIT TRACKER OS</b>", title_style),
-            Paragraph("<b>Version 2.4.0 Production</b><br/>Engineered by <b>Leoxur Inc.</b>", meta_style)
+            Paragraph("<b>Version 2.5.0 Production</b><br/>Engineered by <b>Leoxur Inc.</b>", meta_style)
         ],
         [
             Paragraph("Official User Manual, Architecture & Post-Deployment Setup Guide", subtitle_style),
@@ -140,7 +140,7 @@ def build_user_guide_pdf():
     # 2. Executive Overview
     elements.append(Paragraph("1. Executive Overview & System Architecture", h1_style))
     elements.append(Paragraph(
-        "<b>Habit Tracker OS</b> by <b>Leoxur Inc.</b> is an executive-tier, 24-hour life canvas application engineered with Apple Cupertino ergonomics and powered by Google Gemini Cloud AI. Designed for high-output leadership and personal mastery, it models time at second-level fidelity without double-counting.",
+        "<b>Habit Tracker OS</b> by <b>Leoxur Inc.</b> is an executive-tier, 24-hour life canvas application engineered with Apple Cupertino ergonomics, dynamic global timezone synchronization, and a pluggable Multi-Model AI engine (Google Gemini, Groq, OpenAI, Claude, OpenRouter, and Local Ollama). Designed for high-output leadership and personal mastery, it models time at second-level fidelity without double-counting.",
         body_style
     ))
 
@@ -150,6 +150,10 @@ def build_user_guide_pdf():
         [
             Paragraph("<b>24-Hour Matrix</b>", body_style),
             Paragraph("24 chronological slots (00:00 to 23:00) with squircle glass cards in Grid View and vertical chronological stream in List View.", body_style)
+        ],
+        [
+            Paragraph("<b>Global Timezone Engine</b>", body_style),
+            Paragraph("Per-user IANA timezone synchronization across the entire system: top bar live clock, calendar matrix, hourly logs, and AI prompts with automatic per-request Django timezone activation.", body_style)
         ],
         [
             Paragraph("<b>Proportional Color Fill</b>", body_style),
@@ -164,8 +168,8 @@ def build_user_guide_pdf():
             Paragraph("Real-time top bar & floating focus stopwatch that persists elapsed time across browser tabs and reloads via localStorage.", body_style)
         ],
         [
-            Paragraph("<b>Habit Intelligence (Gemini AI)</b>", body_style),
-            Paragraph("Autonomous cloud AI (Google Gemini 3.5 Flash Lite) with full application knowledge capable of logging activities, clearing slots, and controlling views from chat.", body_style)
+            Paragraph("<b>Habit Intelligence (Multi-Model AI)</b>", body_style),
+            Paragraph("Autonomous agent supporting Google Gemini, Groq (100% free ultra-fast Llama 3.3), OpenAI GPT-4o, Claude 3.5, OpenRouter, and local Ollama with live model auto-detection and execution capabilities.", body_style)
         ]
     ]
     t_arch = Table(arch_data, colWidths=[2.2 * inch, 5.2 * inch])
@@ -185,15 +189,17 @@ def build_user_guide_pdf():
     elements.append(Paragraph("Follow these 4 simple steps immediately after deploying Habit Tracker to your server:", body_style))
 
     elements.append(Paragraph("<b>Step 1: Database Initialization & Migrations</b>", h2_style))
-    elements.append(Paragraph("Run database migrations to ensure all profile, localization, and scheduler tables are active:", body_style))
+    elements.append(Paragraph("Run database migrations to ensure all profile, localization, timezone, and multi-model AI tables are active:", body_style))
     elements.append(Paragraph("./venv/bin/python3 manage.py migrate", code_style))
 
-    elements.append(Paragraph("<b>Step 2: Google Gemini AI Cloud Key Setup</b>", h2_style))
+    elements.append(Paragraph("<b>Step 2: AI Engine Setup & Free API Acquisition</b>", h2_style))
     elements.append(Paragraph(
-        "1. Open <b>Google AI Studio</b> (<font color='#0071E3'>aistudio.google.com</font>) and create a free Gemini API key.<br/>"
-        "2. In Habit Tracker, go to <b>Settings → Habit Intelligence & Gemini AI</b>.<br/>"
-        "3. Paste your API key and click <b>Test Connection ⚡</b>. The system validates the key in ~0.8s and activates <b>Gemini 3.5 Flash Lite</b>.<br/>"
-        "4. Click <b>Save AI Configuration</b>. The green status badge will confirm connection.",
+        "Habit Tracker supports 6 AI backends including <b>100% Free API options</b>:<br/>"
+        "• <b>Google Gemini (100% Free):</b> Go to <b>aistudio.google.com</b> → Create API Key → Paste into Settings. Models: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash.<br/>"
+        "• <b>Groq Cloud (100% Free & Ultra-Fast):</b> Visit <b>console.groq.com</b> → API Keys → Create Key. Gives 14,400 free requests/day with sub-second speeds. Model: llama-3.3-70b-versatile.<br/>"
+        "• <b>OpenRouter (Free Models Available):</b> Sign up at <b>openrouter.ai</b> → Get API key. Free models: deepseek/deepseek-r1:free, meta-llama/llama-3.3-70b-instruct:free.<br/>"
+        "• <b>Local Ollama (100% Free & Offline):</b> Run ollama serve on port 11434. Endpoint: http://localhost:11434/v1. Model: llama3.2.<br/>"
+        "• In <b>Settings → Habit Intelligence</b>, select your provider, enter the key, and click <b>⚡ Test Connection & Auto-Detect</b> to discover and bind active models automatically.",
         bullet_style
     ))
 
@@ -206,11 +212,11 @@ def build_user_guide_pdf():
         bullet_style
     ))
 
-    elements.append(Paragraph("<b>Step 4: Global Language & Regional Timezone</b>", h2_style))
+    elements.append(Paragraph("<b>Step 4: Global Timezone & Language Localization</b>", h2_style))
     elements.append(Paragraph(
-        "1. Select your preferred language from over 40 global world languages in <b>Settings → Profile & Targets</b>.<br/>"
-        "2. Habit Intelligence automatically adapts to communicate in your chosen language.<br/>"
-        "3. Timezone can be adjusted in <font color='#0071E3'>habit_project/settings.py</font> (<font color='#1D1D1F'>TIME_ZONE = 'Asia/Kolkata'</font> or your local timezone).",
+        "1. Set your regional timezone in <b>Settings → Profile & Targets → Timezone</b> (supports 40+ major world cities and regions).<br/>"
+        "2. The top bar live clock immediately displays the live time and abbreviation in your selected timezone.<br/>"
+        "3. Select your UI language from over 40 global languages. Habit Intelligence automatically responds in your selected language and understands your timezone.",
         bullet_style
     ))
     elements.append(Spacer(1, 10))
@@ -250,7 +256,8 @@ def build_user_guide_pdf():
         [Paragraph("Wipe / Reset Hour Slot", body_style), Paragraph("<i>'Clear hour 14'</i> or <i>'Delete activity at 2 PM'</i>", body_style)],
         [Paragraph("Stopwatch Control", body_style), Paragraph("<i>'Start stopwatch'</i>, <i>'Pause timer'</i>, or <i>'Reset stopwatch'</i>", body_style)],
         [Paragraph("View & Theme Switch", body_style), Paragraph("<i>'Switch to grid view'</i>, <i>'Turn on dark mode'</i>", body_style)],
-        [Paragraph("Set Hourly Reminders", body_style), Paragraph("<i>'Remind me at 8:30 PM to review daily goals'</i>", body_style)],
+        [Paragraph("Timezone Adjustment", body_style), Paragraph("<i>'Set timezone to America/New_York'</i> or <i>'Change timezone to UTC'</i>", body_style)],
+        [Paragraph("AI Provider / Model Switch", body_style), Paragraph("<i>'Switch AI provider to Groq'</i> or <i>'Set model to llama-3.3-70b-versatile'</i>", body_style)],
         [Paragraph("Language Switch", body_style), Paragraph("<i>'Change language to Spanish'</i> or <i>'Set language to Hindi'</i>", body_style)],
     ]
     t_cmd = Table(cmd_data, colWidths=[2.5 * inch, 4.9 * inch])
@@ -266,7 +273,7 @@ def build_user_guide_pdf():
 
     # Footer Notice
     footer_text = Paragraph(
-        "<b>Habit Tracker OS v2.4.0</b> • Engineered by <b>Leoxur Inc.</b> • Confidential & Proprietary Document<br/>"
+        "<b>Habit Tracker OS v2.5.0</b> • Engineered by <b>Leoxur Inc.</b> • Confidential & Proprietary Document<br/>"
         "For enterprise support or deployment inquiries, visit repository: <b>github.com/leoxurDev/LeoxurHabitTracker</b>",
         ParagraphStyle(
             'Footer_Custom',

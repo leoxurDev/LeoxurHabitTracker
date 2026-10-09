@@ -23,12 +23,14 @@ class HabitIntelligence:
         self.user = user
         self.profile = getattr(user, 'profile', None)
 
+    def get_active_ai_key(self):
+        """Retrieve active API key across Gemini, Groq, OpenAI, Claude, OpenRouter, or Custom."""
+        if self.profile:
+            return self.profile.get_active_ai_key()
+        return os.getenv('GEMINI_API_KEY') or getattr(settings, 'GEMINI_API_KEY', '') or os.getenv('GROQ_API_KEY', '') or os.getenv('OPENAI_API_KEY', '')
+
     def get_gemini_api_key(self):
-        """Retrieve Gemini API key from environment, settings, or user profile."""
-        key = os.getenv('GEMINI_API_KEY') or getattr(settings, 'GEMINI_API_KEY', '')
-        if not key and self.profile:
-            key = getattr(self.profile, 'gemini_api_key', '')
-        return (key or '').strip()
+        return self.get_active_ai_key()
 
     def process_message(self, user_text):
         """
@@ -41,28 +43,34 @@ class HabitIntelligence:
         """
         text = user_text.strip().lower()
 
-        # 0. Check for Gemini API Key configuration via chat
-        gemini_set_match = re.search(r'(?:set|save|update)\s+gemini\s+(?:api\s+)?key\s+(?:to\s+)?([A-Za-z0-9_-]{20,})', user_text, re.I)
-        if gemini_set_match:
-            new_key = gemini_set_match.group(1).strip()
+        # 0. Check for API Key configuration via chat (Gemini, Groq, OpenAI, Claude)
+        api_key_set_match = re.search(r'(?:set|save|update)\s+(gemini|groq|openai|claude|anthropic|ai)\s+(?:api\s+)?key\s+(?:to\s+)?([A-Za-z0-9_\-\.:]{16,})', user_text, re.I)
+        if api_key_set_match:
+            prov = api_key_set_match.group(1).lower()
+            if prov == 'claude': prov = 'anthropic'
+            if prov == 'ai': prov = (self.profile.ai_provider if self.profile else 'gemini')
+            new_key = api_key_set_match.group(2).strip()
             if self.profile:
-                self.profile.gemini_api_key = new_key
-                self.profile.save(update_fields=['gemini_api_key'])
+                self.profile.ai_provider = prov
+                self.profile.ai_api_key = new_key
+                if prov == 'gemini':
+                    self.profile.gemini_api_key = new_key
+                self.profile.save()
                 return {
-                    'reply': "🤖 **Google Gemini API Key Configured!**\n\nHabit Intelligence is now powered directly by Google Gemini 1.5 Flash. You have full multimodal and natural reasoning enabled across your habit tracker.",
+                    'reply': f"🤖 **{prov.upper()} API Key Configured!**\n\nHabit Intelligence is now powered by **{self.profile.get_ai_provider_display()}** (`{self.profile.get_effective_ai_model()}`). Multimodal reasoning and task execution are active.",
                     'action_type': 'general',
-                    'payload': {'gemini_connected': True}
+                    'payload': {'ai_connected': True, 'provider': prov}
                 }
 
-        # 0.1 Try calling Google Gemini Cloud AI if API key is configured
-        gemini_key = self.get_gemini_api_key()
-        if gemini_key:
+        # 0.1 Try calling Cloud AI if API key is configured
+        ai_key = self.get_active_ai_key()
+        if ai_key:
             try:
-                gemini_result = self._call_gemini_api(user_text, gemini_key)
-                if gemini_result and isinstance(gemini_result, dict) and gemini_result.get('reply'):
-                    return gemini_result
+                ai_result = self._call_cloud_ai(user_text, ai_key)
+                if ai_result and isinstance(ai_result, dict) and ai_result.get('reply'):
+                    return ai_result
             except Exception as e:
-                # If Gemini API fails (network or quota), seamlessly fall back to local intelligence
+                # If Cloud API fails (network or quota), seamlessly fall back to local deterministic intelligence
                 pass
 
         # 1. Action: View Mode Toggle (Grid vs List)
@@ -213,6 +221,56 @@ class HabitIntelligence:
                     'action_type': 'update_profile',
                     'payload': {'language': matched_code}
                 }
+
+        # Timezone Modification Command
+        tz_match = re.search(r'(?:change|switch|set)\s+(?:app\s+)?timezone\s+(?:to\s+)?([A-Za-z0-9_/+\-\s]+)', text)
+        if tz_match and 'language' not in text and 'goal' not in text and 'target' not in text and 'theme' not in text:
+            raw_tz = tz_match.group(1).strip()
+            import zoneinfo
+            matched_tz = None
+            avail = zoneinfo.available_timezones()
+            for cand in avail:
+                if cand.lower() == raw_tz.lower() or cand.lower().endswith(raw_tz.lower()):
+                    matched_tz = cand
+                    break
+            if not matched_tz:
+                for cand in avail:
+                    if raw_tz.lower() in cand.lower():
+                        matched_tz = cand
+                        break
+            if matched_tz and self.profile:
+                self.profile.timezone = matched_tz
+                self.profile.save(update_fields=['timezone'])
+                curr_time = timezone.localtime().strftime('%I:%M:%S %p (%Z)')
+                return {
+                    'reply': f"🌍 **Timezone Updated to {matched_tz}!**\n\nThe entire application and Habit Intelligence are now aligned with **{matched_tz}**.\n\nCurrent local time: **{curr_time}**.",
+                    'action_type': 'update_profile',
+                    'payload': {'timezone': matched_tz}
+                }
+
+        # AI Provider / Model Modification Command
+        ai_prov_match = re.search(r'(?:switch|change|set)\s+(?:ai\s+)?provider\s+(?:to\s+)?(gemini|groq|openai|claude|anthropic|openrouter|custom)', text)
+        if ai_prov_match and self.profile:
+            prov = ai_prov_match.group(1).lower()
+            if prov == 'claude': prov = 'anthropic'
+            self.profile.ai_provider = prov
+            self.profile.save(update_fields=['ai_provider'])
+            return {
+                'reply': f"🤖 **AI Provider Switched to {self.profile.get_ai_provider_display()}!**\n\nActive deployment model: `{self.profile.get_effective_ai_model()}`.",
+                'action_type': 'update_profile',
+                'payload': {'ai_provider': prov}
+            }
+
+        ai_model_match = re.search(r'(?:switch|change|set)\s+(?:ai\s+)?model\s+(?:to\s+)?([A-Za-z0-9_\-\.:/]+)', text)
+        if ai_model_match and self.profile and 'language' not in text and 'theme' not in text:
+            new_model = ai_model_match.group(1).strip()
+            self.profile.ai_model = new_model
+            self.profile.save(update_fields=['ai_model'])
+            return {
+                'reply': f"⚡ **Deployment Model Updated!**\n\nHabit Intelligence is now executing queries with model: `{new_model}` on **{self.profile.get_ai_provider_display()}**.",
+                'action_type': 'update_profile',
+                'payload': {'ai_model': new_model}
+            }
 
         # 7. PRIORITY: Action: Clear / Delete / Remove Hourly Log
         # If user expresses ANY removal intent, NEVER allow it to fall through to log activity!
@@ -436,15 +494,35 @@ class HabitIntelligence:
             'payload': {}
         }
 
-    def _call_gemini_api(self, user_text, api_key):
-        """Invoke Google Gemini 1.5 Flash API with rich contextual prompt."""
+    def _clean_json_response(self, raw_text):
+        """Extract and parse clean JSON from LLM output, handling markdown fences."""
+        text = raw_text.strip()
+        if '```' in text:
+            match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+            if match:
+                text = match.group(1).strip()
+        # Find first { and last }
+        start = text.find('{')
+        end = text.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            text = text[start:end+1]
+        return json.loads(text)
+
+    def _call_cloud_ai(self, user_text, api_key):
+        """Invoke Cloud AI across Google Gemini, Groq, OpenAI, Claude, OpenRouter, or Custom Local."""
+        provider = (self.profile.ai_provider if self.profile else 'gemini').lower()
+        model = self.profile.get_effective_ai_model() if self.profile else 'gemini-1.5-flash'
+        endpoint = (self.profile.ai_custom_endpoint if self.profile else '').strip()
+
         today = timezone.localdate()
         now_h = timezone.localtime().hour
         logs = HourlyLog.objects.filter(user=self.user, date=today).order_by('hour')
         log_summary = [f"Hour {l.hour:02d}:00: '{l.title}' ({l.duration_display}, {l.category.name if l.category else 'General'})" for l in logs]
         schedule_context = "\n".join(log_summary) if log_summary else "No activities logged today yet."
-
         categories = [c.name for c in Category.objects.filter(Q(user=None) | Q(user=self.user))]
+
+        user_tz = self.profile.timezone if self.profile else 'UTC'
+        user_lang = self.profile.get_language_display_text() if self.profile else 'English'
 
         system_prompt = f"""You are Habit Intelligence, the autonomous AI companion for an Apple iOS-style executive Habit & Time Tracker application.
 You possess COMPLETE and EXCLUSIVE knowledge about this application and its features:
@@ -452,47 +530,35 @@ You possess COMPLETE and EXCLUSIVE knowledge about this application and its feat
 === COMPREHENSIVE APPLICATION ARCHITECTURE & FEATURES ===
 1. 24-HOUR HOURLY MATRIX:
    - 24 chronological slots from 00:00 to 23:00.
-   - Dual-view toggle: 24-Hour Grid View (squircle glass cards) and List View (vertical chronological timeline).
+   - Dual-view toggle: 24-Hour Grid View (squircle glass cards) and List View (vertical timeline).
 2. PROPORTIONAL COLOR FILLING ENGINE:
-   - Dynamic highlight filling based on exact duration logged:
-     • 1 full hour (3600s) = 100% complete box highlight with category translucent glow.
-     • 30 minutes (1800s) = Exactly 50% half fill with a vertical glowing divider accent.
-     • 15 minutes (900s) = Exactly 25% quarter fill.
-     • Seconds (e.g. 17s) = Proportional micro-slice.
-     • Multiple activities in one hour = Segmented proportional slices in each category's distinct color!
+   - Dynamic highlight filling based on exact duration logged: 3600s = 100% full box, 1800s = 50% half fill, proportional micro-slices for seconds, segmented slices for multi-activities.
 3. MULTI-HOUR SPANNING SYSTEM:
-   - Activities longer than 1 hour (e.g. Work for 8 hours starting at 09:00) automatically reflect across all spanned hours (09:00 to 16:00).
-   - Displayed with an Apple badge: "Spanned • 09:00–17:00".
-   - Stored as a single master record to keep daily total hours and Apple Activity Rings mathematically exact without double-counting.
-   - Users can still click into any spanned hour (e.g. 12:00) to add another activity (e.g. Lunch) simultaneously!
+   - Activities longer than 1 hour automatically project across consecutive hour slots with an Apple pill badge while retaining exact mathematical total hours without double-counting.
 4. PERSISTENT LIVE STOPWATCH:
-   - Live Apple-style focus timer in the top bar.
-   - Persists elapsed seconds across browser reloads via localStorage.
-   - Tap 'Log' to commit the exact elapsed time directly into the current hour.
-5. BULK CSV SPREADSHEET IMPORT:
-   - Download built-in CSV template next to dashboard date switcher.
-   - Columns: Date (YYYY-MM-DD), Hour (0-23), Activity Title, Category, Duration, Unit (hours/minutes/seconds), Energy Level (1-5).
-6. APPLE ACTIVITY RINGS & PROGRESS:
-   - Daily Target Active Hours ring, Productive Habits ring, and Energy Score ring.
-   - Categories include: Deep Work & Career, Health & Workout, Learning & Reading, Mindfulness & Meditation, Sleep & Recovery, Nutrition & Meals, Social & Family, Leisure & Entertainment, Chores & Errands.
-7. AUTOMATED SMTP EMAIL REPORTS:
-   - Sends daily habit & time summary to user's inbox via Gmail, iCloud, or custom SMTP.
-8. APPEARANCE & THEMES:
-   - Apple Dark Mode (OLED pitch black with vibrant accents) and Light Mode.
+   - Live Apple-style focus timer in the top bar synced with localStorage.
+5. BULK CSV IMPORT & EXPORT:
+   - Built-in CSV template, rapid data ingestion.
+6. APPLE ACTIVITY RINGS:
+   - Active hours, Productive habits, and Energy score rings.
+7. TIMEZONE & MULTI-MODEL INTELLIGENCE:
+   - Current System Timezone: {user_tz}
+   - Active AI Provider: {provider.upper()}, Model: {model}
 
 === CURRENT USER STATE ===
-Current Time: {timezone.localtime().strftime('%I:%M %p')}, Hour Slot: {now_h}
+Current Time: {timezone.localtime().strftime('%I:%M %p (%Z)')}, Hour Slot: {now_h}
 Today's Date: {today.strftime('%Y-%m-%d')}
+Timezone: {user_tz}
 User Profile: Goal={self.profile.primary_goal if self.profile else 'focus'}, Daily Target={self.profile.daily_target_hours if self.profile else 8.0}h
-Preferred Language: {self.profile.get_language_display_text() if self.profile else 'English'} (code: {self.profile.language if self.profile else 'en'})
+Preferred Language: {user_lang} (code: {self.profile.language if self.profile else 'en'})
 Categories available: {', '.join(categories)}
 
 CURRENT LOGGED ACTIVITIES TODAY:
 {schedule_context}
 
 === MANDATORY LANGUAGE REQUIREMENT ===
-You MUST speak, explain, and respond fluently in the user's selected preferred language: **{self.profile.get_language_display_text() if self.profile else 'English'}**.
-Every word in the "reply" string must be translated idiomatically and naturally into **{self.profile.get_language_display_text() if self.profile else 'English'}**, maintaining polite, helpful executive Apple-style tone with emojis and markdown. The JSON keys and action_type must remain in English as specified.
+You MUST speak, explain, and respond fluently in the user's selected preferred language: **{user_lang}**.
+All text in "reply" MUST be naturally and idiomatically translated into **{user_lang}**, maintaining polite, helpful executive Apple-style tone with emojis and markdown. The JSON keys and action_type must remain in English.
 
 === ACTION PROTOCOL (STRICT JSON RESPONSE) ===
 You must ALWAYS respond with a valid JSON object matching this schema:
@@ -504,8 +570,8 @@ You must ALWAYS respond with a valid JSON object matching this schema:
 }}
 
 ACTION INSTRUCTIONS:
-- If user confirms API connection (e.g. 'added api', 'is api working', 'check gemini'):
-  action_type = "general", reply = "🟢 **Google Gemini Cloud AI is Live & Working!**\n\nConnected to **Gemini 3.5 Flash**. I have full contextual access to your habit tracker and can execute logs, deletions, view switching, timers, and answer any questions about your day."
+- If user confirms API connection (e.g. 'added api', 'is api working', 'check gemini', 'check groq', 'check openai'):
+  action_type = "general", reply = "🟢 **Cloud AI is Live & Working!**\n\nConnected to **{provider.upper()} ({model})** in timezone **{user_tz}**. I have full contextual access to your habit tracker and can execute logs, deletions, view switching, timers, and manage your day."
 - If user wants to delete/remove/clear/erase an activity or hour:
   CRITICAL: NEVER log an activity! Set action_type = "delete_activity", payload: {{"hour": <0-23 or null>, "target_title": "<activity title or null>"}}
 - If user wants to log/add/record an activity:
@@ -516,6 +582,8 @@ ACTION INSTRUCTIONS:
   action_type = "change_theme", payload: {{"theme": "dark" or "light"}}
 - If user wants to change language:
   action_type = "update_profile", payload: {{"language": "<code, e.g. es, fr, hi, de, etc.>"}}
+- If user wants to change timezone:
+  action_type = "update_profile", payload: {{"timezone": "<timezone, e.g. Asia/Kolkata, America/New_York, UTC>"}}
 - If user wants stopwatch/timer:
   action_type = "control_timer", payload: {{"action": "start" or "stop" or "reset"}}
 - If user wants to filter:
@@ -526,55 +594,99 @@ ACTION INSTRUCTIONS:
   action_type = "set_reminder", payload: {{"time": "HH:MM", "title": "<task>"}}
 - If user asks questions about application features or guidance:
   action_type = "guide", payload: {{}}
-  action_type = "guide", payload: {{}}
 
 Return ONLY valid JSON.
 """
 
-        payload_data = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": user_text}]
-                }
-            ],
-            "system_instruction": {
-                "parts": [{"text": system_prompt}]
-            },
-            "generationConfig": {
-                "temperature": 0.1,
-                "response_mime_type": "application/json"
+        # 1. Google Gemini Provider
+        if provider == 'gemini':
+            payload_data = {
+                "contents": [{"role": "user", "parts": [{"text": user_text}]}],
+                "system_instruction": {"parts": [{"text": system_prompt}]},
+                "generationConfig": {"temperature": 0.1, "response_mime_type": "application/json"}
             }
-        }
-
-        # Try Google Gemini models in order of support
-        candidate_models = ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-flash-latest']
-        for model_name in candidate_models:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload_data).encode('utf-8'),
-                headers={'Content-Type': 'application/json'},
-                method='POST'
-            )
-            try:
-                with urllib.request.urlopen(req, timeout=9) as response:
-                    result = json.loads(response.read().decode('utf-8'))
-                    text_content = result['candidates'][0]['content']['parts'][0]['text']
-                    data = json.loads(text_content)
-                    return self._apply_gemini_action(data)
-            except urllib.error.HTTPError as e:
-                if e.code == 404:
-                    # Model deprecated or unavailable, try next candidate
+            candidate_models = [model, 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-3.5-flash-lite', 'gemini-flash-latest']
+            seen = set()
+            for m in candidate_models:
+                if m in seen: continue
+                seen.add(m)
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
+                req = urllib.request.Request(url, data=json.dumps(payload_data).encode('utf-8'), headers={'Content-Type': 'application/json'}, method='POST')
+                try:
+                    with urllib.request.urlopen(req, timeout=9) as response:
+                        result = json.loads(response.read().decode('utf-8'))
+                        text_content = result['candidates'][0]['content']['parts'][0]['text']
+                        data = self._clean_json_response(text_content)
+                        return self._apply_cloud_action(data)
+                except urllib.error.HTTPError as e:
+                    if e.code == 404: continue
+                    raise
+                except Exception:
                     continue
-                raise
-            except Exception:
-                continue
+            raise RuntimeError("No available Gemini model responded successfully.")
 
-        raise RuntimeError("No available Gemini model responded successfully.")
+        # 2. OpenAI-Compatible Providers (Groq, OpenAI, OpenRouter, Custom Local)
+        elif provider in ('groq', 'openai', 'openrouter', 'custom'):
+            if provider == 'groq':
+                api_url = "https://api.groq.com/openai/v1/chat/completions"
+            elif provider == 'openai':
+                api_url = "https://api.openai.com/v1/chat/completions"
+            elif provider == 'openrouter':
+                api_url = "https://openrouter.ai/api/v1/chat/completions"
+            else:
+                base = (endpoint or 'http://localhost:11434/v1').rstrip('/')
+                api_url = f"{base}/chat/completions"
 
-    def _apply_gemini_action(self, data):
-        """Execute action returned from Gemini API."""
+            headers = {'Content-Type': 'application/json'}
+            if api_key:
+                headers['Authorization'] = f'Bearer {api_key}'
+
+            req_body = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_text}
+                ],
+                "temperature": 0.1,
+                "response_format": {"type": "json_object"}
+            }
+            req = urllib.request.Request(api_url, data=json.dumps(req_body).encode('utf-8'), headers=headers, method='POST')
+            with urllib.request.urlopen(req, timeout=12) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                raw_text = result['choices'][0]['message']['content']
+                data = self._clean_json_response(raw_text)
+                return self._apply_cloud_action(data)
+
+        # 3. Anthropic Claude
+        elif provider == 'anthropic':
+            api_url = "https://api.anthropic.com/v1/messages"
+            headers = {
+                'x-api-key': api_key,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json'
+            }
+            req_body = {
+                "model": model or "claude-3-5-sonnet-20241022",
+                "system": system_prompt,
+                "messages": [{"role": "user", "content": user_text}],
+                "max_tokens": 1024,
+                "temperature": 0.1
+            }
+            req = urllib.request.Request(api_url, data=json.dumps(req_body).encode('utf-8'), headers=headers, method='POST')
+            with urllib.request.urlopen(req, timeout=12) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                raw_text = result['content'][0]['text']
+                data = self._clean_json_response(raw_text)
+                return self._apply_cloud_action(data)
+
+        raise ValueError(f"Unsupported AI provider: {provider}")
+
+    def _call_gemini_api(self, user_text, api_key):
+        """Backward-compatible alias for _call_cloud_ai."""
+        return self._call_cloud_ai(user_text, api_key)
+
+    def _apply_cloud_action(self, data):
+        """Execute action returned from Cloud AI."""
         action_type = data.get('action_type', 'general')
         payload = data.get('payload', {})
         reply = data.get('reply', '')
@@ -633,6 +745,12 @@ Return ONLY valid JSON.
                     self.profile.primary_goal = payload['primary_goal']
                 if 'language' in payload:
                     self.profile.language = payload['language']
+                if 'timezone' in payload:
+                    self.profile.timezone = payload['timezone']
+                if 'ai_provider' in payload:
+                    self.profile.ai_provider = payload['ai_provider']
+                if 'ai_model' in payload:
+                    self.profile.ai_model = payload['ai_model']
                 self.profile.save()
 
         elif action_type == 'set_reminder':
@@ -647,6 +765,10 @@ Return ONLY valid JSON.
             'action_type': action_type,
             'payload': payload
         }
+
+    def _apply_gemini_action(self, data):
+        """Backward-compatible alias for _apply_cloud_action."""
+        return self._apply_cloud_action(data)
 
     def _execute_log_command(self, raw_text):
         """Parse natural language log commands and create the HourlyLog directly."""

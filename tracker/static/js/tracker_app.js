@@ -1055,20 +1055,34 @@ document.addEventListener('DOMContentLoaded', () => {
   runApplePostLogAnimation();
 });
 
-// --- Top Bar Live Digital Clock (iPad / Tablet & Desktop Screens) ---
+// --- Top Bar Live Digital Clock (iPad / Tablet & Desktop Screens with Timezone Support) ---
 function initTopBarLiveClock() {
+  const clockContainer = document.getElementById('topBarLiveClock');
   const clockEl = document.getElementById('topBarClockText');
   if (!clockEl) return;
 
+  const userTz = clockContainer ? (clockContainer.dataset.userTz || 'UTC') : 'UTC';
+
   function updateClock() {
     const now = new Date();
-    let hours = now.getHours();
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    clockEl.textContent = `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: userTz,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZoneName: 'short'
+      });
+      clockEl.textContent = formatter.format(now);
+    } catch (err) {
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      clockEl.textContent = `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
+    }
   }
 
   updateClock();

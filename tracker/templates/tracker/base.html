@@ -50,14 +50,14 @@
 
       <div class="nav-actions">
         <!-- Live System Clock (iPad/Tablet & Browser Screens Only: hidden on mobile) -->
-        <div id="topBarLiveClock" class="topbar-live-clock" title="System Time">
+        <div id="topBarLiveClock" class="topbar-live-clock" title="System Time ({{ user.profile.timezone|default:'UTC' }})" data-user-tz="{{ user.profile.timezone|default:'UTC' }}">
           <span class="live-clock-dot"></span>
           <span id="topBarClockText">--:--:--</span>
         </div>
 
         <!-- Version Pill & Help Trigger (Engineered by Leoxur Inc.) -->
-        <button id="versionHelpBtn" class="version-help-badge" type="button" title="Version v2.4.0 • Enterprise Help & Guide by Leoxur Inc." aria-label="Version Help Guide">
-          <span class="version-text">v2.4.0</span>
+        <button id="versionHelpBtn" class="version-help-badge" type="button" title="Version v2.5.0 • Enterprise Help & Guide by Leoxur Inc." aria-label="Version Help Guide">
+          <span class="version-text">v2.5.0</span>
           <span class="version-qmark" aria-hidden="true">?</span>
         </button>
 
@@ -92,9 +92,13 @@
                 <span class="popover-subtitle">{{ user.profile.get_primary_goal_display|default:"Daily Focus" }}</span>
               </div>
             </div>
-            <div class="popover-lang-badge" style="padding: 6px 12px; margin: 0 4px 6px 4px; border-radius: 8px; background: var(--bg-subtle); display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+            <div class="popover-lang-badge" style="padding: 4px 12px; margin: 0 4px 4px 4px; border-radius: 8px; background: var(--bg-subtle); display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
               <span style="color: var(--text-secondary);">Language</span>
               <span style="font-weight: 600; color: var(--apple-blue);">{{ user.profile.get_language_display_text|default:"English" }}</span>
+            </div>
+            <div class="popover-lang-badge" style="padding: 4px 12px; margin: 0 4px 6px 4px; border-radius: 8px; background: var(--bg-subtle); display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+              <span style="color: var(--text-secondary);">Timezone</span>
+              <span style="font-weight: 600; color: var(--apple-green);">{{ user.profile.timezone|default:"UTC" }}</span>
             </div>
             <div class="popover-menu-list">
               <a href="{% url 'dashboard' %}" class="popover-menu-item">
@@ -369,7 +373,7 @@
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
               <h3 class="modal-title" style="margin: 0; font-size: 18px; font-weight: 700;">Habit Tracker Enterprise</h3>
-              <span class="version-tag-pill">v2.4.0 Production</span>
+              <span class="version-tag-pill">v2.5.0 Production</span>
             </div>
             <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
               Engineered, Crafted & Certified by <strong>Leoxur Inc.</strong>
@@ -401,7 +405,7 @@
       <div class="version-tabs-bar">
         <button type="button" class="version-tab-btn active" data-tab="tabSetup">Post-Deployment Setup</button>
         <button type="button" class="version-tab-btn" data-tab="tabFeatures">System Architecture</button>
-        <button type="button" class="version-tab-btn" data-tab="tabAI">AI & 42+ Languages</button>
+        <button type="button" class="version-tab-btn" data-tab="tabAI">AI, Timezone & 42+ Languages</button>
         <button type="button" class="version-tab-btn" data-tab="tabCSV">CSV Data Schema</button>
       </div>
 
@@ -411,7 +415,7 @@
           <div class="guide-step-num">1</div>
           <div class="guide-step-content">
             <h4>Database Migrations & Virtualenv Initialization</h4>
-            <p>Ensure all database tables and new language fields are cleanly migrated:</p>
+            <p>Ensure all database tables, timezone schemas, and multi-model fields are migrated:</p>
             <pre class="guide-code-block"><code>python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -422,13 +426,13 @@ python manage.py migrate</code></pre>
         <div class="guide-step-card">
           <div class="guide-step-num">2</div>
           <div class="guide-step-content">
-            <h4>Google Gemini Cloud AI Configuration</h4>
+            <h4>Multi-Model AI Configuration (100% Free Tiers Available)</h4>
             <p>To enable <strong>Habit Intelligence</strong> autonomous cloud multimodal intelligence:</p>
             <ul class="guide-checklist">
-              <li>Navigate to <strong>Google AI Studio</strong> (aistudio.google.com) and create an API Key.</li>
-              <li>Open <strong>Settings</strong> in this application &rarr; scroll to <strong>Habit Intelligence & Gemini AI</strong>.</li>
-              <li>Paste your key (starts with <code>AQ...</code> or <code>AIza...</code>) and click <strong>Save & Test Connection</strong>.</li>
-              <li>The badge will switch to <span style="color: var(--apple-green); font-weight: 600;">● Gemini 3.5 Cloud Connected</span>.</li>
+              <li><strong>Google Gemini (Free):</strong> Get free key at <code>aistudio.google.com</code>. Supports gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash.</li>
+              <li><strong>Groq Cloud (100% Free):</strong> Get ultra-fast key at <code>console.groq.com</code> (14,400 free requests/day with Llama 3.3 70B).</li>
+              <li><strong>OpenAI / Claude / OpenRouter / Ollama:</strong> Also natively supported with custom deployment model fields.</li>
+              <li>In <strong>Settings</strong>, select provider, enter key, and click <strong>⚡ Test Connection & Auto-Detect</strong>.</li>
             </ul>
           </div>
         </div>
@@ -528,7 +532,7 @@ gunicorn habit_project.wsgi:application --bind 0.0.0.0:8000 --workers 3</code></
       <!-- Modal Footer -->
       <div class="version-guide-footer">
         <div style="font-size: 11.5px; color: var(--text-tertiary);">
-          Release: Enterprise Edition v2.4.0 • Built with precision by <strong>Leoxur Inc.</strong>
+          Release: Enterprise Edition v2.5.0 • Built with precision by <strong>Leoxur Inc.</strong>
         </div>
         <button type="button" onclick="closeVersionHelpModal()" class="ios-btn-secondary" style="height: 32px; padding: 0 16px; font-size: 12.5px;">
           Done

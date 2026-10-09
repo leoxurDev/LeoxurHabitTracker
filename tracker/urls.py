@@ -33,8 +33,9 @@ urlpatterns = [
     # SMTP Testing API
     path('api/smtp/test/', views.api_test_smtp, name='api_test_smtp'),
 
-    # Gemini AI Testing API
+    # Gemini & Multi-Provider AI Testing API
     path('api/gemini/test/', views.api_test_gemini, name='api_test_gemini'),
+    path('api/ai/test-connection/', views.api_test_ai_connection, name='api_test_ai_connection'),
 
     # User Guide Download (Leoxur Inc.)
     path('help/user-guide/download/', views.download_user_guide_pdf, name='download_user_guide_pdf'),

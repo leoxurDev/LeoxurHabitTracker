@@ -1103,10 +1103,24 @@ def settings_view(request):
         action = request.POST.get('action', 'profile')
 
         if action == 'ai':
-            # Save Habit Intelligence AI configuration
-            profile.gemini_api_key = request.POST.get('gemini_api_key', '').strip()
-            profile.save(update_fields=['gemini_api_key'])
-            messages.success(request, 'Habit Intelligence & Gemini AI configuration saved successfully!')
+            # Save Habit Intelligence AI configuration (Gemini, Groq, OpenAI, Claude, OpenRouter, Custom)
+            ai_provider = request.POST.get('ai_provider', 'gemini').strip().lower()
+            ai_key = request.POST.get('ai_api_key', '').strip()
+            ai_model = request.POST.get('ai_model', '').strip()
+            ai_custom_endpoint = request.POST.get('ai_custom_endpoint', '').strip()
+
+            profile.ai_provider = ai_provider
+            profile.ai_api_key = ai_key
+            if ai_provider == 'gemini' and ai_key:
+                profile.gemini_api_key = ai_key
+            elif not profile.gemini_api_key and ai_key:
+                profile.gemini_api_key = ai_key
+
+            profile.ai_model = ai_model
+            profile.ai_custom_endpoint = ai_custom_endpoint
+            profile.save(update_fields=['ai_provider', 'ai_api_key', 'gemini_api_key', 'ai_model', 'ai_custom_endpoint'])
+
+            messages.success(request, f'Habit Intelligence AI configured successfully ({profile.get_ai_provider_display()} • {profile.get_effective_ai_model()})!')
             return redirect('settings')
 
         elif action == 'smtp':
@@ -1139,6 +1153,8 @@ def settings_view(request):
             profile.theme = request.POST.get('theme', profile.theme)
             profile.avatar_color = request.POST.get('avatar_color', profile.avatar_color)
             profile.language = request.POST.get('language', profile.language)
+            profile.timezone = request.POST.get('timezone', profile.timezone).strip()
+            request.session['django_timezone'] = profile.timezone
             profile.notifications_enabled = 'notifications_enabled' in request.POST
             profile.save()
 
@@ -1150,19 +1166,174 @@ def settings_view(request):
                 request.user.email = email
             request.user.save()
 
-            messages.success(request, 'Preferences have been updated!')
+            messages.success(request, 'Preferences & Timezone have been updated!')
             return redirect('settings')
 
-    from .models import GLOBAL_LANGUAGES
+    from .models import GLOBAL_LANGUAGES, COMMON_TIMEZONES, AI_PROVIDER_CHOICES
     categories = Category.objects.filter(Q(user=None) | Q(user=request.user))
     context = {
         'profile': profile,
         'smtp_settings': smtp_settings,
         'goal_choices': GOAL_CHOICES,
         'global_languages': GLOBAL_LANGUAGES,
+        'common_timezones': COMMON_TIMEZONES,
+        'ai_provider_choices': AI_PROVIDER_CHOICES,
         'categories': categories,
     }
     return render(request, 'tracker/settings.html', context)
+
+
+@login_required
+@require_POST
+def api_test_ai_connection(request):
+    """
+    Test connection to selected AI provider (Gemini, Groq, OpenAI, Anthropic, OpenRouter, Custom)
+    and auto-discover or validate available deployment models.
+    """
+    import json, urllib.request, urllib.error
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        data = request.POST
+
+    provider = data.get('provider', 'gemini').strip().lower()
+    api_key = data.get('api_key', '').strip()
+    custom_endpoint = data.get('custom_endpoint', '').strip()
+    target_model = data.get('model', '').strip()
+
+    if not api_key and provider != 'custom':
+        api_key = request.user.profile.get_active_ai_key()
+
+    if not api_key and provider != 'custom':
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Please enter an API Key for {provider.upper()}. Check the Free Key Guide below!'
+        }, status=400)
+
+    try:
+        if provider == 'gemini':
+            # Check Google Gemini
+            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+            req = urllib.request.Request(url, headers={'Content-Type': 'application/json'})
+            with urllib.request.urlopen(req, timeout=9) as resp:
+                res_data = json.loads(resp.read().decode('utf-8'))
+                models = [m.get('name', '').replace('models/', '') for m in res_data.get('models', []) if 'generateContent' in m.get('supportedGenerationMethods', [])]
+                top_models = [m for m in models if any(k in m for k in ['flash', 'pro', 'gemini'])]
+                return JsonResponse({
+                    'status': 'success',
+                    'provider': 'Google Gemini',
+                    'is_free_tier': True,
+                    'message': 'Connected to Google Gemini Cloud! Free tier is active & working.',
+                    'models': top_models or models[:12],
+                    'recommended_model': 'gemini-1.5-flash'
+                })
+
+        elif provider == 'groq':
+            # Check Groq Cloud (100% Free Ultra-Fast Tier)
+            url = "https://api.groq.com/openai/v1/models"
+            req = urllib.request.Request(url, headers={'Authorization': f'Bearer {api_key}'})
+            with urllib.request.urlopen(req, timeout=9) as resp:
+                res_data = json.loads(resp.read().decode('utf-8'))
+                models = [m.get('id', '') for m in res_data.get('data', [])]
+                return JsonResponse({
+                    'status': 'success',
+                    'provider': 'Groq Cloud',
+                    'is_free_tier': True,
+                    'message': 'Connected to Groq Cloud Ultra-Fast inference! 100% free tier verified.',
+                    'models': models,
+                    'recommended_model': 'llama-3.3-70b-versatile'
+                })
+
+        elif provider == 'openai':
+            # Check OpenAI
+            url = "https://api.openai.com/v1/models"
+            req = urllib.request.Request(url, headers={'Authorization': f'Bearer {api_key}'})
+            with urllib.request.urlopen(req, timeout=9) as resp:
+                res_data = json.loads(resp.read().decode('utf-8'))
+                models = [m.get('id', '') for m in res_data.get('data', []) if any(k in m.get('id', '') for k in ['gpt-4', 'gpt-3.5'])]
+                models.sort()
+                return JsonResponse({
+                    'status': 'success',
+                    'provider': 'OpenAI',
+                    'is_free_tier': False,
+                    'message': 'Connected to OpenAI API successfully!',
+                    'models': models or ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
+                    'recommended_model': 'gpt-4o-mini'
+                })
+
+        elif provider == 'anthropic':
+            # Anthropic validation
+            url = "https://api.anthropic.com/v1/messages"
+            payload = {
+                "model": target_model or "claude-3-5-sonnet-20241022",
+                "max_tokens": 10,
+                "messages": [{"role": "user", "content": "ping"}]
+            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={
+                    'x-api-key': api_key,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json'
+                },
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=9) as resp:
+                return JsonResponse({
+                    'status': 'success',
+                    'provider': 'Anthropic Claude',
+                    'is_free_tier': False,
+                    'message': 'Connected to Anthropic Claude successfully!',
+                    'models': ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+                    'recommended_model': 'claude-3-5-sonnet-20241022'
+                })
+
+        elif provider == 'openrouter':
+            url = "https://openrouter.ai/api/v1/models"
+            req = urllib.request.Request(url, headers={'Authorization': f'Bearer {api_key}'})
+            with urllib.request.urlopen(req, timeout=9) as resp:
+                res_data = json.loads(resp.read().decode('utf-8'))
+                all_models = [m.get('id', '') for m in res_data.get('data', [])]
+                free_models = [m for m in all_models if ':free' in m]
+                return JsonResponse({
+                    'status': 'success',
+                    'provider': 'OpenRouter',
+                    'is_free_tier': True,
+                    'message': f'Connected to OpenRouter! Found {len(free_models)} free deployment models.',
+                    'models': free_models + [m for m in all_models[:20] if ':free' not in m],
+                    'recommended_model': free_models[0] if free_models else 'meta-llama/llama-3.2-3b-instruct:free'
+                })
+
+        elif provider == 'custom':
+            endpoint = (custom_endpoint or 'http://localhost:11434/v1').rstrip('/')
+            url = f"{endpoint}/models"
+            headers = {}
+            if api_key:
+                headers['Authorization'] = f'Bearer {api_key}'
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                res_data = json.loads(resp.read().decode('utf-8'))
+                models = [m.get('id', '') for m in res_data.get('data', [])]
+                return JsonResponse({
+                    'status': 'success',
+                    'provider': 'Custom / Local Endpoint',
+                    'is_free_tier': True,
+                    'message': f'Connected to local endpoint ({endpoint})! Deployment models verified.',
+                    'models': models or ['llama3.2', 'mistral', 'qwen2.5'],
+                    'recommended_model': models[0] if models else 'llama3.2'
+                })
+
+    except urllib.error.HTTPError as e:
+        err_msg = f"HTTP {e.code}: "
+        try:
+            err_data = json.loads(e.read().decode('utf-8'))
+            err_msg += err_data.get('error', {}).get('message', str(e.reason))
+        except Exception:
+            err_msg += str(e.reason)
+        return JsonResponse({'status': 'error', 'message': err_msg}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f"Connection failed: {str(e)}"}, status=400)
 
 
 @login_required

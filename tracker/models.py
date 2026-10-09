@@ -66,6 +66,59 @@ GLOBAL_LANGUAGES = [
     ('fa', 'فارسی (Persian)'),
 ]
 
+COMMON_TIMEZONES = [
+    ('UTC', 'UTC (Universal Coordinated Time)'),
+    ('Asia/Kolkata', 'Asia/Kolkata (India Standard Time - IST)'),
+    ('America/New_York', 'America/New_York (US Eastern Time - EST/EDT)'),
+    ('America/Chicago', 'America/Chicago (US Central Time - CST/CDT)'),
+    ('America/Denver', 'America/Denver (US Mountain Time - MST/MDT)'),
+    ('America/Los_Angeles', 'America/Los_Angeles (US Pacific Time - PST/PDT)'),
+    ('America/Anchorage', 'America/Anchorage (Alaska - AKST/AKDT)'),
+    ('Pacific/Honolulu', 'Pacific/Honolulu (Hawaii - HST)'),
+    ('America/Toronto', 'America/Toronto (Canada Eastern)'),
+    ('America/Vancouver', 'America/Vancouver (Canada Pacific)'),
+    ('America/Sao_Paulo', 'America/Sao_Paulo (Brazil - BRT)'),
+    ('America/Buenos_Aires', 'America/Buenos_Aires (Argentina - ART)'),
+    ('America/Mexico_City', 'America/Mexico_City (Mexico City - CST)'),
+    ('Europe/London', 'Europe/London (London - GMT / BST)'),
+    ('Europe/Dublin', 'Europe/Dublin (Dublin - GMT / IST)'),
+    ('Europe/Paris', 'Europe/Paris (Paris - CET / CEST)'),
+    ('Europe/Berlin', 'Europe/Berlin (Berlin - CET / CEST)'),
+    ('Europe/Rome', 'Europe/Rome (Rome - CET / CEST)'),
+    ('Europe/Madrid', 'Europe/Madrid (Madrid - CET / CEST)'),
+    ('Europe/Amsterdam', 'Europe/Amsterdam (Amsterdam - CET / CEST)'),
+    ('Europe/Athens', 'Europe/Athens (Athens - EET / EEST)'),
+    ('Europe/Istanbul', 'Europe/Istanbul (Istanbul - TRT)'),
+    ('Europe/Moscow', 'Europe/Moscow (Moscow - MSK)'),
+    ('Africa/Cairo', 'Africa/Cairo (Cairo - EET)'),
+    ('Africa/Johannesburg', 'Africa/Johannesburg (Johannesburg - SAST)'),
+    ('Africa/Lagos', 'Africa/Lagos (Lagos - WAT)'),
+    ('Africa/Nairobi', 'Africa/Nairobi (Nairobi - EAT)'),
+    ('Asia/Dubai', 'Asia/Dubai (Dubai / UAE - GST)'),
+    ('Asia/Riyadh', 'Asia/Riyadh (Riyadh / Saudi Arabia - AST)'),
+    ('Asia/Dhaka', 'Asia/Dhaka (Bangladesh - BST)'),
+    ('Asia/Karachi', 'Asia/Karachi (Pakistan - PKT)'),
+    ('Asia/Bangkok', 'Asia/Bangkok (Bangkok / Indochina - ICT)'),
+    ('Asia/Singapore', 'Asia/Singapore (Singapore - SGT)'),
+    ('Asia/Hong_Kong', 'Asia/Hong_Kong (Hong Kong - HKT)'),
+    ('Asia/Shanghai', 'Asia/Shanghai (China Standard Time - CST)'),
+    ('Asia/Tokyo', 'Asia/Tokyo (Japan Standard Time - JST)'),
+    ('Asia/Seoul', 'Asia/Seoul (Korea Standard Time - KST)'),
+    ('Australia/Sydney', 'Australia/Sydney (Sydney - AEST / AEDT)'),
+    ('Australia/Melbourne', 'Australia/Melbourne (Melbourne - AEST / AEDT)'),
+    ('Australia/Perth', 'Australia/Perth (Perth - AWST)'),
+    ('Pacific/Auckland', 'Pacific/Auckland (New Zealand - NZST / NZDT)'),
+]
+
+AI_PROVIDER_CHOICES = [
+    ('gemini', 'Google Gemini (Free Tier Available)'),
+    ('groq', 'Groq Cloud (100% Free Ultra-Fast Tier)'),
+    ('openai', 'OpenAI (GPT-4o / GPT-4o-mini / GPT-3.5)'),
+    ('anthropic', 'Anthropic Claude (Claude 3.5 Sonnet / Haiku)'),
+    ('openrouter', 'OpenRouter (Multi-Model Gateway w/ Free Models)'),
+    ('custom', 'Custom / Local Endpoint (Ollama, vLLM, LM Studio)'),
+]
+
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -80,6 +133,11 @@ class UserProfile(models.Model):
     avatar_color = models.CharField(max_length=20, default='#007AFF')
     gemini_api_key = models.CharField(max_length=255, blank=True, default='')
     language = models.CharField(max_length=20, default='en', choices=GLOBAL_LANGUAGES)
+    timezone = models.CharField(max_length=64, default='Asia/Kolkata')
+    ai_provider = models.CharField(max_length=30, default='gemini', choices=AI_PROVIDER_CHOICES)
+    ai_api_key = models.CharField(max_length=255, blank=True, default='')
+    ai_model = models.CharField(max_length=100, blank=True, default='')
+    ai_custom_endpoint = models.CharField(max_length=255, blank=True, default='')
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
@@ -89,6 +147,27 @@ class UserProfile(models.Model):
 
     def get_language_display_text(self):
         return dict(GLOBAL_LANGUAGES).get(self.language, 'English (US / UK)')
+
+    def get_timezone_display_text(self):
+        return dict(COMMON_TIMEZONES).get(self.timezone, self.timezone)
+
+    def get_active_ai_key(self):
+        """Return ai_api_key or fallback to gemini_api_key"""
+        return (self.ai_api_key.strip() or self.gemini_api_key.strip())
+
+    def get_effective_ai_model(self):
+        """Return user-configured model or provider default"""
+        if self.ai_model and self.ai_model.strip():
+            return self.ai_model.strip()
+        defaults = {
+            'gemini': 'gemini-1.5-flash',
+            'groq': 'llama-3.3-70b-versatile',
+            'openai': 'gpt-4o-mini',
+            'anthropic': 'claude-3-5-sonnet-20241022',
+            'openrouter': 'meta-llama/llama-3.2-3b-instruct:free',
+            'custom': 'llama3.2',
+        }
+        return defaults.get(self.ai_provider, 'gemini-1.5-flash')
 
 
 class Category(models.Model):
